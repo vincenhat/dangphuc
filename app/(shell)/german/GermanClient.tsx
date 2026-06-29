@@ -1,7 +1,8 @@
-"use client";
+﻿"use client";
 
 import { useCallback, useState } from "react";
-import type { StudyCard, WritingEntry } from "@/lib/study";
+import type { GermanCard } from "@/lib/german";
+import type { WritingEntry } from "@/lib/study";
 import type { ActiveTest } from "./TestsTab";
 import type { ActiveReading } from "./ReadingTab";
 import { usePersistentState } from "@/lib/use-persistent-state";
@@ -17,57 +18,53 @@ import WritingTab from "./WritingTab";
 type Tab = "review" | "decks" | "spelling" | "reading" | "grammar" | "writing" | "tests";
 
 const TABS: { value: Tab; label: string; description: string }[] = [
-  { value: "review", label: "Review", description: "Cards due today" },
-  { value: "decks", label: "Decks", description: "Your vocabulary" },
-  { value: "spelling", label: "Spelling", description: "Type what you hear" },
-  { value: "reading", label: "Reading", description: "Short passages" },
-  { value: "grammar", label: "Grammar", description: "Ngữ pháp tiếng Anh" },
-  { value: "writing", label: "Writing", description: "AI feedback" },
-  { value: "tests", label: "Practice Test", description: "CEFR-style tests" },
+  { value: "review", label: "Review", description: "Karten heute fällig" },
+  { value: "decks", label: "Decks", description: "Dein Wortschatz" },
+  { value: "spelling", label: "Spelling", description: "Was du hörst, tippen" },
+  { value: "reading", label: "Reading", description: "Kurze Lesetexte" },
+  { value: "grammar", label: "Grammar", description: "Ngữ pháp tiếng Đức" },
+  { value: "writing", label: "Writing", description: "AI Feedback" },
+  { value: "tests", label: "Praxistest", description: "CEFR Übungstests" },
 ];
 
-export default function StudyClient({
+export default function GermanClient({
   initialCards,
   initialDue,
   initialWriting,
   today,
   initialError,
 }: {
-  initialCards: StudyCard[];
-  initialDue: StudyCard[];
+  initialCards: GermanCard[];
+  initialDue: GermanCard[];
   initialWriting: WritingEntry[];
   today: string;
   initialError: string | null;
 }) {
   const [tab, setTab] = usePersistentState<Tab>(
-    "pt_study_tab",
+    "pt_german_tab",
     initialDue.length > 0 ? "review" : "decks",
   );
-  const [cards, setCards] = useState<StudyCard[]>(initialCards);
-  const [due, setDue] = useState<StudyCard[]>(initialDue);
+  const [cards, setCards] = useState<GermanCard[]>(initialCards);
+  const [due, setDue] = useState<GermanCard[]>(initialDue);
   const [error, setError] = useState<string | null>(initialError);
-  // Lifted out of TestsTab so an in-progress test survives tab switches and
-  // page navigation (answers/highlights are persisted separately by id).
   const [activeTest, setActiveTest] = usePersistentState<ActiveTest | null>(
-    "pt_study_active_test",
+    "pt_german_active_test",
     null,
   );
-  // Same idea for the Reading tab — the active piece persists across tabs.
   const [activeReading, setActiveReading] = usePersistentState<ActiveReading | null>(
-    "pt_study_active_reading",
+    "pt_german_active_reading",
     null,
   );
-  // Shared AI model selection across every tab that calls the model.
   const { model, setModel, options, loading } = useAIModel();
 
   const refreshCards = useCallback(async () => {
     try {
       const [allRes, dueRes] = await Promise.all([
-        fetch("/api/study/cards", { cache: "no-store" }),
-        fetch("/api/study/cards?due=1", { cache: "no-store" }),
+        fetch("/api/german/cards", { cache: "no-store" }),
+        fetch("/api/german/cards?due=1", { cache: "no-store" }),
       ]);
-      const allData = (await allRes.json()) as { cards?: StudyCard[] };
-      const dueData = (await dueRes.json()) as { cards?: StudyCard[] };
+      const allData = (await allRes.json()) as { cards?: GermanCard[] };
+      const dueData = (await dueRes.json()) as { cards?: GermanCard[] };
       setCards(allData.cards ?? []);
       setDue(dueData.cards ?? []);
     } catch (err) {
@@ -140,8 +137,6 @@ export default function StudyClient({
         </div>
       ) : null}
 
-      {/* Model switcher — shown on AI-powered tabs so the user can dodge a
-          rate limit by switching models. */}
       {tab !== "review" && tab !== "spelling" ? (
         <div className="surface flex flex-wrap items-center justify-between gap-2 p-3">
           <p className="text-xs ink-muted">

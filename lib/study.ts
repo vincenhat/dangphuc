@@ -149,13 +149,16 @@ export const DAILY_REVIEW_LIMIT = 20;
  * Pick at most N cards from `cards` using a deterministic per-day shuffle.
  * Same `dateIso` → same picks, so reloading mid-day stays stable.
  *
+ * Generic so the same scheduler works for both `StudyCard` (English) and
+ * `GermanCard` (lib/german.ts) — only the shared SRS shape matters.
+ *
  * Implementation: Mulberry32 seeded from a hash of dateIso → Fisher–Yates.
  */
-export function pickDailyReview(
-  cards: StudyCard[],
+export function pickDailyReview<T>(
+  cards: T[],
   dateIso: string,
   n: number = DAILY_REVIEW_LIMIT,
-): StudyCard[] {
+): T[] {
   if (cards.length <= n) return cards;
   let seed = 0;
   for (let i = 0; i < dateIso.length; i++) {
