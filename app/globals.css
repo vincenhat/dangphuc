@@ -1,0 +1,211 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Theme tokens — Apple Premium Consumer */
+:root {
+  --canvas: #ffffff;
+  --canvas-soft: #f5f5f7;
+  --canvas-strong: #000000;
+  --ink: #1d1d1f;
+  --ink-muted: #6e6e73;
+  --accent: #ec4899;
+  --accent-link: #db2777;
+  --border-soft: #d2d2d7;
+  --border-mid: #86868b;
+}
+
+:root.dark {
+  --canvas: #0a0a0c;
+  --canvas-soft: #131316;
+  --canvas-strong: #000000;
+  --ink: #f5f5f7;
+  --ink-muted: #a1a1a6;
+  --accent: #f472b6;
+  --accent-link: #f472b6;
+  --border-soft: #2a2a2c;
+  --border-mid: #3a3a3c;
+}
+
+/* Drive the main content's left offset off the sidebar collapse state.
+   The Sidebar component sets data-nav="collapsed" | "expanded" on <html>. */
+:root {
+  --nav-width: 16rem; /* matches md:w-64 */
+}
+:root[data-nav="collapsed"] {
+  --nav-width: 4rem; /* matches md:w-16 */
+}
+
+html {
+  /* iOS safe-area: paint the status bar / home-indicator area in the page color
+     so the layout feels native rather than letterboxed. */
+  background: var(--canvas);
+}
+
+html,
+body {
+  background: var(--canvas);
+  color: var(--ink);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+body {
+  font-family:
+    "SF Pro Text", "SF Pro Icons", Inter, "Helvetica Neue", Helvetica, Arial,
+    sans-serif;
+  font-size: 15px;
+  line-height: 1.47;
+  letter-spacing: -0.012em;
+  /* Stop iOS from auto-shrinking text in landscape rotation. */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  /* Disable the chunky native tap highlight; we use focus-visible rings. */
+  -webkit-tap-highlight-color: transparent;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  font-family:
+    "SF Pro Display", "SF Pro Icons", "Inter Tight", "Helvetica Neue",
+    Helvetica, Arial, sans-serif;
+  letter-spacing: -0.022em;
+}
+
+::selection {
+  background: rgba(236, 72, 153, 0.18);
+}
+
+/* When a modal has the body locked (overflow:hidden on <html>), keep the
+   sidebar drawer scrollable. The lock helper is applied imperatively. */
+html.body-lock,
+html.body-lock body {
+  overflow: hidden;
+  touch-action: none;
+}
+
+/* Reusable surfaces */
+@layer components {
+  .surface {
+    background: var(--canvas);
+    border: 1px solid var(--border-soft);
+    border-radius: 16px;
+  }
+  .surface-soft {
+    background: var(--canvas-soft);
+    border-radius: 16px;
+  }
+  .ink-muted {
+    color: var(--ink-muted);
+  }
+  .hairline {
+    border-color: var(--border-soft);
+  }
+
+  .btn-primary {
+    background: var(--accent);
+    color: #ffffff;
+    border-radius: 8px;
+    /* 44px min height so primary buttons hit Apple/Material tap targets. */
+    min-height: 44px;
+    padding: 8px 18px;
+    font-weight: 500;
+    transition: opacity 0.15s ease;
+    /* Avoid the iOS double-tap zoom on small primary buttons. */
+    touch-action: manipulation;
+  }
+  .btn-primary:hover {
+    opacity: 0.9;
+  }
+  .btn-primary:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .btn-ghost {
+    color: var(--ink);
+    border: 1px solid var(--border-soft);
+    background: transparent;
+    border-radius: 8px;
+    min-height: 40px;
+    padding: 8px 14px;
+    transition:
+      background 0.15s ease,
+      border-color 0.15s ease;
+    touch-action: manipulation;
+  }
+  .btn-ghost:hover {
+    background: var(--canvas-soft);
+    border-color: var(--border-mid);
+  }
+
+  .input {
+    background: var(--canvas);
+    color: var(--ink);
+    border: 1px solid var(--border-soft);
+    border-radius: 8px;
+    /* 16px font on touch devices avoids Safari's auto-zoom on focus. We bump
+       it down to 14px on >=md breakpoints below to keep desktop dense. */
+    font-size: 16px;
+    padding: 10px 12px;
+    width: 100%;
+    transition: border-color 0.15s ease;
+  }
+  .input:focus {
+    outline: none;
+    border-color: var(--ink);
+  }
+  .input::placeholder {
+    color: var(--ink-muted);
+  }
+}
+
+@media (min-width: 768px) {
+  .input {
+    font-size: 14px;
+  }
+}
+
+/* When tab-style toggles overflow on narrow widths, allow side-scroll
+   without showing a scrollbar. Used by Study tabs. */
+.scroll-tabs {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.scroll-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+/* Iconography buttons that don't go through .btn-* — give them a tap target
+   without forcing a visible box. */
+@media (max-width: 767px) {
+  button[aria-label] {
+    /* Generic floor; explicit min-h utilities still win. */
+    min-height: 36px;
+  }
+}
+
+/* Shell main padding — handles iOS safe-area on the sides + bottom. The
+   md breakpoint adds room for the fixed sidebar. */
+.shell-main {
+  padding-left: max(env(safe-area-inset-left, 0px), 1rem);
+  padding-right: max(env(safe-area-inset-right, 0px), 1rem);
+  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 1.25rem);
+}
+@media (min-width: 768px) {
+  .shell-main {
+    padding-left: calc(var(--nav-width, 16rem) + 2.5rem);
+    padding-right: 2.5rem;
+  }
+}
+
+/* Nursing lesson highlighter — CSS Custom Highlight API.
+   The LessonHighlighter component registers a Highlight named "lesson-mark";
+   this styles its painted ranges without touching the DOM. */
+::highlight(lesson-mark) {
+  background: rgba(245, 197, 24, 0.34);
+  color: inherit;
+}
