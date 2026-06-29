@@ -181,60 +181,77 @@ export default function ReadingTab({
           để lưu vào bộ thẻ.
         </p>
 
-        <div className="mt-4 grid gap-3 md:grid-cols-[1fr_140px_160px_auto]">
+        <div className="mt-4 space-y-3">
           <label className="block">
             <span className="block text-xs font-medium ink-muted">Chủ đề · Thema</span>
-            <input
-              list="reading-topic-suggestions"
+            <textarea
               value={topic}
               onChange={(e) => setTopic(e.target.value)}
-              maxLength={120}
-              placeholder="vd. Ein Wochenende in Berlin"
-              className="input mt-1"
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  if (!generating && topic.trim()) void generate();
+                }
+              }}
+              maxLength={200}
+              rows={2}
+              placeholder="vd. Ein Wochenende in Berlin · Enter để tạo, Shift+Enter để xuống dòng"
+              className="input mt-1 min-h-[64px] resize-y"
             />
-            <datalist id="reading-topic-suggestions">
+            <div className="mt-2 flex flex-wrap gap-1.5">
               {TOPIC_SUGGESTIONS.map((t) => (
-                <option key={t} value={t} />
+                <button
+                  key={t}
+                  type="button"
+                  onClick={() => setTopic(t)}
+                  className="rounded-capsule px-2.5 py-1 text-[11px] transition-colors"
+                  style={{
+                    background: "var(--canvas-soft)",
+                    color: "var(--ink-muted)",
+                  }}
+                >
+                  {t}
+                </button>
               ))}
-            </datalist>
+            </div>
           </label>
 
-          <label className="block">
-            <span className="block text-xs font-medium ink-muted">Mức · CEFR</span>
-            <select
-              value={cefr}
-              onChange={(e) => setCefr(e.target.value as CefrLevel)}
-              className="input mt-1"
-            >
-              {CEFR_LEVELS.map((l) => (
-                <option key={l} value={l}>
-                  {l}
-                </option>
-              ))}
-            </select>
-          </label>
+          <div className="grid gap-3 md:grid-cols-[140px_160px_auto] md:items-end">
+            <label className="block">
+              <span className="block text-xs font-medium ink-muted">Mức · CEFR</span>
+              <select
+                value={cefr}
+                onChange={(e) => setCefr(e.target.value as CefrLevel)}
+                className="input mt-1"
+              >
+                {CEFR_LEVELS.map((l) => (
+                  <option key={l} value={l}>
+                    {l}
+                  </option>
+                ))}
+              </select>
+            </label>
 
-          <label className="block">
-            <span className="block text-xs font-medium ink-muted">Thể loại · Kategorie</span>
-            <select
-              value={category}
-              onChange={(e) => setCategory(e.target.value as ReadingCategory)}
-              className="input mt-1"
-            >
-              {READING_CATEGORIES.map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
-            </select>
-          </label>
+            <label className="block">
+              <span className="block text-xs font-medium ink-muted">Thể loại · Kategorie</span>
+              <select
+                value={category}
+                onChange={(e) => setCategory(e.target.value as ReadingCategory)}
+                className="input mt-1"
+              >
+                {READING_CATEGORIES.map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                ))}
+              </select>
+            </label>
 
-          <div className="flex items-end">
             <button
               type="button"
               onClick={generate}
-              disabled={generating}
-              className="btn-primary w-full md:w-auto"
+              disabled={generating || !topic.trim()}
+              className="btn-primary md:ml-auto"
             >
               {generating ? "Đang viết…" : "Tạo bài"}
             </button>

@@ -65,7 +65,7 @@ export async function POST(req: Request) {
   const model = typeof body.model === "string" ? body.model : undefined;
 
   if (!topic) return NextResponse.json({ error: "topic required" }, { status: 400 });
-  if (topic.length > 120) {
+  if (topic.length > 200) {
     return NextResponse.json({ error: "topic too long" }, { status: 400 });
   }
   if (!(CEFR_LEVELS as readonly string[]).includes(cefr)) {
@@ -110,7 +110,7 @@ export async function POST(req: Request) {
   const now = nowIso();
   await db().collection(COLLECTION).doc(id).set({
     id,
-    topic: topic.slice(0, 120),
+    topic: topic.slice(0, 200),
     cefr,
     category,
     title: reading.title.slice(0, 200),

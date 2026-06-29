@@ -46,7 +46,7 @@ export async function POST(req: Request) {
   if (!topic) {
     return NextResponse.json({ error: "topic required" }, { status: 400 });
   }
-  if (topic.length > 120) {
+  if (topic.length > 200) {
     return NextResponse.json({ error: "topic too long" }, { status: 400 });
   }
   if (!(CEFR_LEVELS as readonly string[]).includes(cefr)) {
@@ -86,7 +86,7 @@ export async function POST(req: Request) {
   const now = nowIso();
   await db().collection(COLLECTION).doc(id).set({
     id,
-    topic: topic.slice(0, 120),
+    topic: topic.slice(0, 200),
     cefr,
     // Keep the same string-JSON layout the legacy SQL schema used, so the
     // detail route can hand it back to the client unchanged.
