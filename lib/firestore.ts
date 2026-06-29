@@ -39,8 +39,20 @@ function getApp(): App {
       "Firebase admin env vars missing: FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, FIREBASE_PRIVATE_KEY.",
     );
   }
-  // Vercel/CI env stores newlines as the literal characters "\n" — convert
-  // them back so the PEM parser doesn't choke.
+  // The private key can arrive shaped a few different ways depending on how
+  // it was pasted/uploaded:
+  //   1. with real newlines (local .env.local, vercel-cli stdin pipe)
+  //   2. with `\n` escape sequences (Vercel dashboard, GitHub secrets)
+  //   3. wrapped in surrounding double-quotes (when copied straight out of
+  //      the JSON service-account file)
+  // Normalize all three so node:crypto's PEM parser doesn't choke.
+  privateKey = privateKey.trim();
+  if (
+    (privateKey.startsWith('"') && privateKey.endsWith('"')) ||
+    (privateKey.startsWith("'") && privateKey.endsWith("'"))
+  ) {
+    privateKey = privateKey.slice(1, -1);
+  }
   if (privateKey.includes("\\n")) {
     privateKey = privateKey.replace(/\\n/g, "\n");
   }
