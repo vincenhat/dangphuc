@@ -13,8 +13,9 @@ import ReadingTab from "./ReadingTab";
 import GrammarTab from "./GrammarTab";
 import TestsTab from "./TestsTab";
 import WritingTab from "./WritingTab";
+import GermanTab from "./GermanTab";
 
-type Tab = "review" | "decks" | "spelling" | "reading" | "grammar" | "writing" | "tests";
+type Tab = "review" | "decks" | "spelling" | "reading" | "grammar" | "writing" | "tests" | "german";
 
 const TABS: { value: Tab; label: string; description: string }[] = [
   { value: "review", label: "Review", description: "Cards due today" },
@@ -24,6 +25,7 @@ const TABS: { value: Tab; label: string; description: string }[] = [
   { value: "grammar", label: "Grammar", description: "Ngữ pháp tiếng Anh" },
   { value: "writing", label: "Writing", description: "AI feedback" },
   { value: "tests", label: "Practice Test", description: "CEFR-style tests" },
+  { value: "german", label: "Đức", description: "Tiếng Đức · SRS deck" },
 ];
 
 export default function StudyClient({
@@ -183,13 +185,15 @@ export default function StudyClient({
         <GrammarTab />
       ) : tab === "writing" ? (
         <WritingTab initial={initialWriting} model={model} onError={setError} />
-      ) : (
+      ) : tab === "tests" ? (
         <TestsTab
           onError={setError}
           model={model}
           active={activeTest}
           setActive={setActiveTest}
         />
+      ) : (
+        <GermanTab model={model} onError={setError} />
       )}
     </div>
   );
