@@ -3,6 +3,16 @@
 import { useState } from "react";
 import type { WritingEntry, WritingIssue, WritingUpgrade } from "@/lib/study";
 import { formatDate } from "@/lib/format";
+import {
+  buildAdjectiveWeak,
+  buildNounCases,
+  GENUS_LABEL,
+  KASUS_LABEL,
+  VERB_PRONOUNS,
+  type GermanArticle,
+  type Genus,
+  type Kasus,
+} from "@/lib/german";
 
 interface ApiResult {
   id: string;
@@ -12,16 +22,22 @@ interface ApiResult {
 }
 
 interface NounForm {
-  article: "der" | "die" | "das";
+  article: GermanArticle;
   plural: string;
   genitive_singular: string;
   note: string;
 }
-interface VerbForm {
+interface VerbPersonForms {
   ich: string;
   du: string;
   er: string;
-  praeteritum: string;
+  wir: string;
+  ihr: string;
+  sie: string;
+}
+interface VerbForm {
+  praesens: VerbPersonForms;
+  praeteritum: VerbPersonForms;
   partizip2: string;
   perfekt_aux: "haben" | "sein";
   type: "regular" | "irregular";
@@ -52,6 +68,15 @@ const ISSUE_LABEL: Record<WritingIssue["type"], string> = {
   spelling: "Chính tả",
   punctuation: "Dấu câu",
   style: "Văn phong",
+};
+
+const KASUS_ORDER: readonly Kasus[] = ["nom", "akk", "dat", "gen"];
+const GENUS_ORDER: readonly Genus[] = ["m", "f", "n", "pl"];
+
+const ARTICLE_COLOR: Record<GermanArticle, string> = {
+  der: "#0ea5e9",
+  die: "#ec4899",
+  das: "#16a34a",
 };
 
 export default function WritingTab({
@@ -283,10 +308,11 @@ function parseJsonArray<T>(s: string | null): T[] {
 }
 
 /**
- * Word Forms cho tiếng Đức: nhập một từ → sinh biến thể đầy đủ.
- * - Substantiv: der/die/das, Plural, Genitiv Singular
- * - Verb: chia 3 ngôi Präsens, Präteritum, Partizip II, haben/sein
- * - Adjektiv: Komparativ, Superlativ
+ * Word Forms engine. Nhập một từ tiếng Đức → AI phân tích từ loại và trả về
+ * thông tin cốt lõi, sau đó component dựng bảng chia hoàn chỉnh:
+ *   - Substantiv: bảng 4 cách × Singular/Plural (8 ô)
+ *   - Verb: Präsens 6 ngôi + Präteritum 6 ngôi + Partizip II + haben/sein
+ *   - Adjektiv: bảng schwache Deklination 4 cách × 4 giống (16 ô)
  */
 function WordFormsEngine({
   model,
@@ -334,8 +360,9 @@ function WordFormsEngine({
         </p>
       </div>
       <p className="mt-0.5 text-xs ink-muted">
-        Nhập một từ để xem mạo từ, số nhiều, chia động từ (Präsens / Präteritum /
-        Partizip II), so sánh tính từ.
+        Nhập một từ. Danh từ → bảng 4 Kasus × Singular/Plural. Tính từ →
+        schwache Deklination 4 × 4 (mit bestimmtem Artikel). Động từ → Präsens
+        & Präteritum đầy đủ 6 ngôi + Partizip II + haben/sein.
       </p>
 
       <div className="mt-3 flex gap-2">
@@ -351,7 +378,7 @@ function WordFormsEngine({
           maxLength={40}
           autoComplete="off"
           spellCheck={false}
-          placeholder="vd. Hund, gehen, schnell…"
+          placeholder="vd. Hund, gehen, schnell, schön…"
           className="input"
         />
         <button
@@ -366,65 +393,16 @@ function WordFormsEngine({
 
       {data ? (
         hasAny ? (
-          <div className="mt-4 space-y-3">
+          <div className="mt-4 space-y-5">
             <p className="text-sm">
               Từ <span className="font-semibold">{data.word}</span> có thể là:
             </p>
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {data.noun ? (
-                <FormCard
-                  label="Substantiv · Danh từ"
-                  color="#0ea5e9"
-                  badge={data.noun.article}
-                  badgeColor={
-                    data.noun.article === "der"
-                      ? "#0ea5e9"
-                      : data.noun.article === "die"
-                        ? "#ec4899"
-                        : "#16a34a"
-                  }
-                  rows={[
-                    { k: "Nominativ Sg.", v: `${data.noun.article} ${data.word}` },
-                    { k: "Plural (die)", v: data.noun.plural || "—" },
-                    { k: "Genitiv Sg.", v: data.noun.genitive_singular || "—" },
-                  ]}
-                  note={data.noun.note}
-                />
-              ) : null}
-              {data.verb ? (
-                <FormCard
-                  label="Verb · Động từ"
-                  color="#ec4899"
-                  badge={data.verb.type === "irregular" ? "bất quy tắc" : "thường"}
-                  badgeColor={data.verb.type === "irregular" ? "#f59e0b" : "#16a34a"}
-                  rows={[
-                    { k: "ich", v: data.verb.ich },
-                    { k: "du", v: data.verb.du },
-                    { k: "er / sie / es", v: data.verb.er },
-                    { k: "Präteritum (er)", v: data.verb.praeteritum },
-                    { k: "Partizip II", v: data.verb.partizip2 },
-                    {
-                      k: "Perfekt mit",
-                      v: data.verb.perfekt_aux === "sein" ? "sein" : "haben",
-                    },
-                  ]}
-                  note={data.verb.note}
-                />
-              ) : null}
-              {data.adjective ? (
-                <FormCard
-                  label="Adjektiv · Tính từ"
-                  color="#f59e0b"
-                  badge="So sánh"
-                  badgeColor="#a855f7"
-                  rows={[
-                    { k: "Komparativ", v: data.adjective.comparative },
-                    { k: "Superlativ", v: data.adjective.superlative },
-                  ]}
-                  note={data.adjective.note}
-                />
-              ) : null}
-            </div>
+
+            {data.noun ? <NounTable word={data.word} noun={data.noun} /> : null}
+            {data.verb ? <VerbTables word={data.word} verb={data.verb} /> : null}
+            {data.adjective ? (
+              <AdjectiveTable word={data.word} adj={data.adjective} />
+            ) : null}
           </div>
         ) : (
           <p className="mt-3 text-sm ink-muted">
@@ -436,21 +414,17 @@ function WordFormsEngine({
   );
 }
 
-function FormCard({
-  label,
-  color,
-  badge,
-  badgeColor,
-  rows,
-  note,
-}: {
-  label: string;
-  color: string;
-  badge: string;
-  badgeColor: string;
-  rows: { k: string; v: string }[];
-  note: string;
-}) {
+// ─────────────────────────────────────────────── Substantiv table ──
+
+function NounTable({ word, noun }: { word: string; noun: NounForm }) {
+  const color = ARTICLE_COLOR[noun.article];
+  const cases = buildNounCases(
+    word,
+    noun.article,
+    noun.plural,
+    noun.genitive_singular,
+  );
+
   return (
     <div
       className="rounded-md border-l-4 p-3"
@@ -458,24 +432,212 @@ function FormCard({
     >
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm font-semibold tracking-tight" style={{ color }}>
-          {label}
+          Substantiv · Danh từ
         </p>
-        <span
-          className="rounded-capsule px-2 py-0.5 text-[10px] font-medium"
-          style={{ background: `${badgeColor}1f`, color: badgeColor }}
-        >
-          {badge}
-        </span>
+        <div className="flex flex-wrap gap-1.5">
+          <Pill text={noun.article} color={color} />
+          <Pill
+            text={`Plural: die ${noun.plural || "—"}`}
+            color="#6366f1"
+          />
+          {noun.genitive_singular ? (
+            <Pill text={`Gen Sg: ${noun.genitive_singular}`} color="#a855f7" />
+          ) : null}
+        </div>
       </div>
-      <dl className="mt-2 space-y-1.5">
-        {rows.map((r, i) => (
-          <div key={i} className="flex items-baseline justify-between gap-2">
-            <dt className="text-xs ink-muted">{r.k}</dt>
-            <dd className="text-sm font-medium">{r.v || "—"}</dd>
-          </div>
-        ))}
-      </dl>
-      {note ? <p className="mt-2 text-xs ink-muted">{note}</p> : null}
+
+      <p className="mt-2 text-xs ink-muted">
+        Chia 4 cách × số ít/số nhiều. Lưu ý: Dativ Plural luôn thêm -n
+        (trừ khi đã có sẵn -n/-s).
+      </p>
+
+      <div className="mt-3 overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="text-left">
+              <th className="py-1.5 pr-3 text-xs font-medium uppercase tracking-wider ink-muted">
+                Kasus
+              </th>
+              <th className="py-1.5 pr-3 text-xs font-medium uppercase tracking-wider ink-muted">
+                Singular
+              </th>
+              <th className="py-1.5 text-xs font-medium uppercase tracking-wider ink-muted">
+                Plural
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {KASUS_ORDER.map((k) => (
+              <tr key={k} className="border-t hairline">
+                <td
+                  className="py-1.5 pr-3 text-xs font-medium"
+                  style={{ color }}
+                >
+                  {KASUS_LABEL[k]}
+                </td>
+                <td className="py-1.5 pr-3 font-medium">{cases.sg[k]}</td>
+                <td className="py-1.5 font-medium" style={{ color: "var(--accent-link)" }}>
+                  {cases.pl[k]}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {noun.note ? <p className="mt-2 text-xs ink-muted">{noun.note}</p> : null}
     </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────── Verb tables ──
+
+function VerbTables({ word, verb }: { word: string; verb: VerbForm }) {
+  const color = "#ec4899";
+  const typeLabel = verb.type === "irregular" ? "bất quy tắc" : "thường";
+  const typeColor = verb.type === "irregular" ? "#f59e0b" : "#16a34a";
+
+  return (
+    <div
+      className="rounded-md border-l-4 p-3"
+      style={{ borderColor: color, background: "var(--canvas-soft)" }}
+    >
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-sm font-semibold tracking-tight" style={{ color }}>
+          Verb · Động từ ({word})
+        </p>
+        <div className="flex flex-wrap gap-1.5">
+          <Pill text={typeLabel} color={typeColor} />
+          <Pill
+            text={`Perfekt mit ${verb.perfekt_aux}`}
+            color={verb.perfekt_aux === "sein" ? "#0ea5e9" : "#a855f7"}
+          />
+          {verb.partizip2 ? (
+            <Pill text={`Partizip II: ${verb.partizip2}`} color="#16a34a" />
+          ) : null}
+        </div>
+      </div>
+
+      <div className="mt-3 grid gap-3 md:grid-cols-2">
+        <ConjugationTable title="Präsens · Hiện tại" forms={verb.praesens} color={color} />
+        <ConjugationTable
+          title="Präteritum · Quá khứ"
+          forms={verb.praeteritum}
+          color={color}
+        />
+      </div>
+
+      {verb.note ? <p className="mt-2 text-xs ink-muted">{verb.note}</p> : null}
+    </div>
+  );
+}
+
+function ConjugationTable({
+  title,
+  forms,
+  color,
+}: {
+  title: string;
+  forms: VerbPersonForms;
+  color: string;
+}) {
+  return (
+    <div>
+      <p className="mb-1.5 text-xs font-semibold uppercase tracking-wider" style={{ color }}>
+        {title}
+      </p>
+      <table className="w-full text-sm">
+        <tbody>
+          {VERB_PRONOUNS.map(({ key, label }) => (
+            <tr key={key} className="border-t hairline">
+              <td className="w-28 py-1 pr-3 text-xs ink-muted">{label}</td>
+              <td className="py-1 font-medium">{forms[key] || "—"}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+// ──────────────────────────────────────────────── Adjective table ──
+
+function AdjectiveTable({ word, adj }: { word: string; adj: AdjForm }) {
+  const color = "#f59e0b";
+  const decl = buildAdjectiveWeak(word);
+
+  return (
+    <div
+      className="rounded-md border-l-4 p-3"
+      style={{ borderColor: color, background: "var(--canvas-soft)" }}
+    >
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-sm font-semibold tracking-tight" style={{ color }}>
+          Adjektiv · Tính từ
+        </p>
+        <div className="flex flex-wrap gap-1.5">
+          <Pill text={`Komp: ${adj.comparative || "—"}`} color="#a855f7" />
+          <Pill text={`Sup: ${adj.superlative || "—"}`} color="#0ea5e9" />
+        </div>
+      </div>
+
+      <p className="mt-2 text-xs ink-muted">
+        Schwache Deklination (với bestimmter Artikel der/die/das). Chỉ Nominativ
+        (mọi giống) và Akkusativ (Fem/Neut) thêm -e; còn lại thêm -en.
+      </p>
+
+      <div className="mt-3 overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="text-left">
+              <th className="py-1.5 pr-3 text-xs font-medium uppercase tracking-wider ink-muted">
+                Kasus
+              </th>
+              {GENUS_ORDER.map((g) => (
+                <th
+                  key={g}
+                  className="py-1.5 pr-3 text-xs font-medium uppercase tracking-wider ink-muted"
+                >
+                  {GENUS_LABEL[g]}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {KASUS_ORDER.map((k) => (
+              <tr key={k} className="border-t hairline">
+                <td className="py-1.5 pr-3 text-xs font-medium" style={{ color }}>
+                  {KASUS_LABEL[k]}
+                </td>
+                {GENUS_ORDER.map((g) => (
+                  <td
+                    key={g}
+                    className="py-1.5 pr-3 font-medium"
+                    style={{ color: g === "pl" ? "var(--accent-link)" : undefined }}
+                  >
+                    {decl[k][g]}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {adj.note ? <p className="mt-2 text-xs ink-muted">{adj.note}</p> : null}
+    </div>
+  );
+}
+
+// ──────────────────────────────────────────────────────────── Pill ──
+
+function Pill({ text, color }: { text: string; color: string }) {
+  return (
+    <span
+      className="rounded-capsule px-2 py-0.5 text-[10px] font-medium"
+      style={{ background: `${color}1f`, color }}
+    >
+      {text}
+    </span>
   );
 }
