@@ -1,12 +1,11 @@
 "use client";
 
 /**
- * Spelling practice.
+ * Spelling practice cho tiếng Đức.
  *
- * The user listens to a word's pronunciation and reads its English meaning,
- * then types the spelling. They pick the practice pool — Recently added
- * (default), Reviewed, or All cards — and how many words. The system picks
- * that many at random. Vietnamese meaning is revealed only after Check.
+ * Người dùng nghe phát âm và đọc nghĩa, rồi gõ lại từ. Có 6 pool để chọn:
+ * thẻ đã sai, hôm nay, hôm qua, mới thêm (14 ngày), đã ôn, tất cả.
+ * Hệ thống random N thẻ; bản dịch tiếng Việt chỉ hiện sau khi Check.
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -15,6 +14,7 @@ import { usePersistentState } from "@/lib/use-persistent-state";
 import { speakWord } from "./speak";
 
 type Phase = "setup" | "practice" | "done";
+type PoolKind = "missed" | "today" | "yesterday" | "recent" | "reviewed" | "all";
 
 interface Result {
   card: GermanCard;
@@ -22,7 +22,8 @@ interface Result {
   correct: boolean;
 }
 
-/** Normalize for a forgiving comparison (case + surrounding/!inner whitespace). */
+const RECENT_DAYS = 14;
+
 function normalize(s: string): string {
   return s.trim().toLowerCase().replace(/\s+/g, " ");
 }
@@ -36,29 +37,15 @@ function shuffle<T>(arr: T[]): T[] {
   return a;
 }
 
+function localDateKey(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${dd}`;
+}
+
 export default function SpellingTab({ cards }: { cards: GermanCard[] }) {
-  // Pool source — six modes the user can switch between:
-  //  • missed: cards spelled wrong in past sessions (persistent across sessions)
-  //  • today: cards added today (drills brand-new vocabulary)
-  //  • yesterday: cards added yesterday
-  //  • recent: cards added in the last 14 days
-  //  • reviewed: cards reviewed at least once (reinforces active learning)
-  //  • all: everything in the deck
-  type PoolKind = "missed" | "today" | "yesterday" | "recent" | "reviewed" | "all";
-
-  const RECENT_DAYS = 14;
-  const recentCutoffMs =
-    Date.now() - RECENT_DAYS * 24 * 60 * 60 * 1000;
-
-  // Local-day comparison: returns the YYYY-MM-DD of a date in the user's
-  // local timezone. created_at is ISO UTC, so we let the Date constructor
-  // convert it for the user's view of "today" / "yesterday".
-  function localDateKey(d: Date): string {
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, "0");
-    const dd = String(d.getDate()).padStart(2, "0");
-    return `${y}-${m}-${dd}`;
-  }
+  const recentCutoffMs = Date.now() - RECENT_DAYS * 86_400_000;
   const todayKey = localDateKey(new Date());
   const yesterdayKey = localDateKey(new Date(Date.now() - 86_400_000));
 
@@ -92,8 +79,6 @@ export default function SpellingTab({ cards }: { cards: GermanCard[] }) {
     [cards, recentCutoffMs],
   );
 
-  // Missed words persist across sessions: a card lands here whenever the user
-  // spells it wrong; it's removed when they later spell it right (anywhere).
   const [missedIds, setMissedIds] = usePersistentState<string[]>(
     "pt_german_spelling_missed",
     [],
@@ -103,9 +88,6 @@ export default function SpellingTab({ cards }: { cards: GermanCard[] }) {
     return cards.filter((c) => set.has(c.id));
   }, [cards, missedIds]);
 
-  // Default: smallest non-empty pool that's "freshest" — missed > today >
-  // yesterday > recent > reviewed > all. Surfacing missed words first nudges
-  // the user to fix their gaps before drilling new content.
   const [poolKind, setPoolKind] = useState<PoolKind>(() => {
     if (missed.length) return "missed";
     if (today.length) return "today";
@@ -129,42 +111,12 @@ export default function SpellingTab({ cards }: { cards: GermanCard[] }) {
               : cards;
 
   const POOL_OPTIONS: { value: PoolKind; label: string; size: number; hint: string }[] = [
-    {
-      value: "missed",
-      label: "Đã sai",
-      size: missed.length,
-      hint: "Ôn lại từ đã viết sai",
-    },
-    {
-      value: "today",
-      label: "Today",
-      size: today.length,
-      hint: "Added today",
-    },
-    {
-      value: "yesterday",
-      label: "Yesterday",
-      size: yesterday.length,
-      hint: "Added yesterday",
-    },
-    {
-      value: "recent",
-      label: "Recently added",
-      size: recent.length,
-      hint: `Last ${RECENT_DAYS} days`,
-    },
-    {
-      value: "reviewed",
-      label: "Reviewed",
-      size: reviewed.length,
-      hint: "At least one review",
-    },
-    {
-      value: "all",
-      label: "All cards",
-      size: cards.length,
-      hint: "Everything in your deck",
-    },
+    { value: "missed", label: "Đã sai", size: missed.length, hint: "Từ đã viết sai" },
+    { value: "today", label: "Hôm nay", size: today.length, hint: "Thẻ thêm hôm nay" },
+    { value: "yesterday", label: "Hôm qua", size: yesterday.length, hint: "Thẻ thêm hôm qua" },
+    { value: "recent", label: "Mới thêm", size: recent.length, hint: `${RECENT_DAYS} ngày qua` },
+    { value: "reviewed", label: "Đã ôn", size: reviewed.length, hint: "Thẻ đã ôn ít nhất 1 lần" },
+    { value: "all", label: "Tất cả", size: cards.length, hint: "Mọi thẻ trong bộ" },
   ];
 
   const countOptions = useMemo(() => {
@@ -194,7 +146,6 @@ export default function SpellingTab({ cards }: { cards: GermanCard[] }) {
     setPhase("practice");
   }
 
-  // Speak the current word + focus the box whenever a new word appears.
   useEffect(() => {
     if (phase !== "practice" || !card) return;
     speakWord(card.word);
@@ -206,7 +157,6 @@ export default function SpellingTab({ cards }: { cards: GermanCard[] }) {
     const correct = normalize(input) === normalize(card.word);
     setResults((prev) => [...prev, { card, typed: input, correct }]);
     setChecked(true);
-    // Persist for the cross-session "Đã sai" pool: track misses, clear on hits.
     setMissedIds((prev) => {
       if (correct) {
         return prev.includes(card.id) ? prev.filter((id) => id !== card.id) : prev;
@@ -225,7 +175,6 @@ export default function SpellingTab({ cards }: { cards: GermanCard[] }) {
     setChecked(false);
   }, [idx, session.length]);
 
-  // Enter checks, then Enter again advances.
   function onKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
     if (e.key !== "Enter") return;
     e.preventDefault();
@@ -233,22 +182,24 @@ export default function SpellingTab({ cards }: { cards: GermanCard[] }) {
     else next();
   }
 
-  // ---- Setup screen ----
+  // ---- Setup ----
   if (phase === "setup") {
     return (
       <div className="space-y-5">
         <section className="surface p-5">
-          <h2 className="text-lg font-semibold tracking-tight">Spelling practice</h2>
+          <h2 className="text-lg font-semibold tracking-tight">
+            Đánh vần · Rechtschreibung
+          </h2>
           <p className="mt-1 text-sm ink-muted">
-            Listen to each word and read its meaning, then type the spelling.
-            Words are picked at random from the pool you choose below.
+            Nghe phát âm và đọc nghĩa, rồi gõ lại từ tiếng Đức. Hệ thống chọn
+            ngẫu nhiên từ pool bên dưới.
           </p>
 
           <div className="mt-4">
             <p className="text-xs uppercase tracking-[0.16em] ink-muted">
-              Practice from
+              Chọn pool luyện
             </p>
-            <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
+            <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
               {POOL_OPTIONS.map((opt) => {
                 const active = poolKind === opt.value;
                 const empty = opt.size === 0;
@@ -292,16 +243,16 @@ export default function SpellingTab({ cards }: { cards: GermanCard[] }) {
         {pool.length === 0 ? (
           <div className="surface p-10 text-center">
             <h3 className="text-base font-semibold tracking-tight">
-              No words to practice yet
+              Chưa có thẻ nào để luyện
             </h3>
             <p className="mt-2 text-sm ink-muted">
-              Add new cards in Decks, or review some cards first to populate
-              the &ldquo;Reviewed&rdquo; pool.
+              Thêm thẻ mới ở tab Decks, hoặc ôn vài thẻ trước để có thẻ trong
+              pool &ldquo;Đã ôn&rdquo;.
             </p>
           </div>
         ) : (
           <section className="surface p-5">
-            <p className="text-sm font-medium">How many words?</p>
+            <p className="text-sm font-medium">Luyện bao nhiêu từ?</p>
             <div className="mt-3 flex flex-wrap gap-2">
               {countOptions.map((n) => (
                 <button
@@ -317,7 +268,7 @@ export default function SpellingTab({ cards }: { cards: GermanCard[] }) {
                     color: count === n ? "#fff" : "var(--ink)",
                   }}
                 >
-                  {n === pool.length && n > 5 ? `All ${n}` : n}
+                  {n === pool.length && n > 5 ? `Cả ${n}` : n}
                 </button>
               ))}
             </div>
@@ -327,30 +278,28 @@ export default function SpellingTab({ cards }: { cards: GermanCard[] }) {
     );
   }
 
-  // ---- Done screen ----
+  // ---- Done ----
   if (phase === "done") {
     const correctCount = results.filter((r) => r.correct).length;
     const pct = results.length ? Math.round((correctCount / results.length) * 100) : 0;
-    const missed = results.filter((r) => !r.correct);
+    const wrong = results.filter((r) => !r.correct);
     return (
       <div className="space-y-5">
         <section className="surface p-8 text-center">
-          <p className="text-xs uppercase tracking-[0.16em] ink-muted">Session complete</p>
+          <p className="text-xs uppercase tracking-[0.16em] ink-muted">Đã xong</p>
           <p className="mt-2 text-4xl font-semibold tracking-tight tabular-nums">
             {correctCount}/{results.length}
           </p>
-          <p className="mt-1 text-sm ink-muted">{pct}% correct</p>
+          <p className="mt-1 text-sm ink-muted">{pct}% đúng</p>
           <div className="mt-5 flex flex-wrap justify-center gap-2">
             <button type="button" onClick={() => start(count)} className="btn-primary text-sm">
-              Practice again
+              Luyện lại
             </button>
-            {missed.length ? (
+            {wrong.length ? (
               <button
                 type="button"
                 onClick={() => {
-                  // Quick path: drill the words missed in THIS session, in order.
-                  const cardsToDrill = missed.map((r) => r.card);
-                  setSession(cardsToDrill);
+                  setSession(wrong.map((r) => r.card));
                   setIdx(0);
                   setInput("");
                   setChecked(false);
@@ -360,7 +309,7 @@ export default function SpellingTab({ cards }: { cards: GermanCard[] }) {
                 className="btn-ghost text-sm"
                 title="Luyện lại các từ vừa sai"
               >
-                Practice missed ({missed.length})
+                Ôn lại từ sai ({wrong.length})
               </button>
             ) : null}
             <button
@@ -368,18 +317,18 @@ export default function SpellingTab({ cards }: { cards: GermanCard[] }) {
               onClick={() => setPhase("setup")}
               className="btn-ghost text-sm"
             >
-              Change count
+              Đổi số lượng
             </button>
           </div>
         </section>
 
-        {missed.length ? (
+        {wrong.length ? (
           <section className="surface p-5">
             <h3 className="text-sm font-semibold tracking-tight">
-              Words to revisit ({missed.length})
+              Từ cần xem lại ({wrong.length})
             </h3>
             <ul className="mt-3 space-y-2">
-              {missed.map((r, i) => (
+              {wrong.map((r, i) => (
                 <li
                   key={i}
                   className="flex flex-wrap items-baseline gap-x-3 gap-y-1 border-b hairline pb-2 last:border-0 last:pb-0"
@@ -388,16 +337,18 @@ export default function SpellingTab({ cards }: { cards: GermanCard[] }) {
                     type="button"
                     onClick={() => speakWord(r.card.word)}
                     className="text-sm font-semibold tracking-tight hover:underline"
-                    title="Listen"
+                    title="Nghe phát âm"
                   >
-                    {r.card.word}
+                    {r.card.pos === "noun" && r.card.article
+                      ? `${r.card.article} ${r.card.word}`
+                      : r.card.word}
                   </button>
                   {r.typed.trim() ? (
                     <span className="text-xs ink-muted">
-                      you typed: <span className="line-through">{r.typed}</span>
+                      bạn viết: <span className="line-through">{r.typed}</span>
                     </span>
                   ) : (
-                    <span className="text-xs ink-muted">skipped</span>
+                    <span className="text-xs ink-muted">bỏ qua</span>
                   )}
                   {r.card.translation ? (
                     <span className="text-xs" style={{ color: "var(--accent-link)" }}>
@@ -410,36 +361,35 @@ export default function SpellingTab({ cards }: { cards: GermanCard[] }) {
           </section>
         ) : (
           <section className="surface p-6 text-center text-sm ink-muted">
-            Perfect score — every word spelled correctly. 🎉
+            Trọn vẹn — đúng tất cả các từ. 🎉
           </section>
         )}
       </div>
     );
   }
 
-  // ---- Practice screen ----
+  // ---- Practice ----
   if (!card) return null;
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between px-1 text-sm ink-muted">
         <span>
-          Word {idx + 1} of {session.length}
+          Từ {idx + 1} / {session.length}
         </span>
         <span className="tabular-nums">
-          {results.filter((r) => r.correct).length} correct
+          {results.filter((r) => r.correct).length} đúng
         </span>
       </div>
 
       <article className="surface p-8">
-        {/* Listen control */}
         <div className="flex items-center justify-center">
           <button
             type="button"
             onClick={() => speakWord(card.word)}
             className="flex h-16 w-16 items-center justify-center rounded-full text-white transition-transform hover:scale-105"
             style={{ background: "var(--accent)" }}
-            aria-label="Play pronunciation"
-            title="Listen again"
+            aria-label="Phát âm"
+            title="Nghe lại"
           >
             <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
               <path d="M3 10v4a1 1 0 0 0 1 1h3l5 4V5L7 9H4a1 1 0 0 0-1 1z" />
@@ -448,10 +398,8 @@ export default function SpellingTab({ cards }: { cards: GermanCard[] }) {
             </svg>
           </button>
         </div>
-        <p className="mt-2 text-center text-xs ink-muted">Tap to hear it again</p>
+        <p className="mt-2 text-center text-xs ink-muted">Nhấn để nghe lại</p>
 
-        {/* Before checking: English definition as the hint (level + meaning
-            in English). The Vietnamese meaning is revealed only on Check. */}
         <div className="mt-5 space-y-2 text-center">
           {card.cefr ? (
             <span
@@ -461,12 +409,16 @@ export default function SpellingTab({ cards }: { cards: GermanCard[] }) {
               {card.cefr}
             </span>
           ) : null}
+          {card.pos === "noun" ? (
+            <p className="text-xs uppercase tracking-wider ink-muted">
+              Substantiv — hãy gõ KÈM mạo từ (der/die/das)
+            </p>
+          ) : null}
           {card.definition ? (
             <p className="text-sm leading-relaxed">{card.definition}</p>
           ) : null}
         </div>
 
-        {/* Input */}
         <div className="mt-6">
           <input
             ref={inputRef}
@@ -478,33 +430,36 @@ export default function SpellingTab({ cards }: { cards: GermanCard[] }) {
             autoCorrect="off"
             autoCapitalize="off"
             spellCheck={false}
-            placeholder="Type the word…"
+            placeholder={card.pos === "noun" ? "der/die/das + Wort…" : "Gõ từ…"}
             className="input text-center text-lg"
-            aria-label="Type the word you hear"
+            aria-label="Gõ từ bạn vừa nghe"
           />
 
           {checked && lastResult ? (
             <div className="mt-3 space-y-1 text-center">
               {lastResult.correct ? (
                 <p className="text-sm font-semibold" style={{ color: "#16a34a" }}>
-                  ✓ Correct
+                  ✓ Đúng rồi
                 </p>
               ) : (
                 <p className="text-sm">
                   <span className="font-semibold" style={{ color: "#ef4444" }}>
-                    ✗ Not quite ·{" "}
+                    ✗ Chưa đúng ·{" "}
                   </span>
-                  <span className="font-semibold tracking-tight">{card.word}</span>
+                  <span className="font-semibold tracking-tight">
+                    {card.pos === "noun" && card.article
+                      ? `${card.article} ${card.word}`
+                      : card.word}
+                  </span>
                 </p>
               )}
-              {/* Vietnamese meaning revealed only after Check */}
               {card.translation ? (
                 <p className="text-base font-medium" style={{ color: "var(--accent-link)" }}>
                   {card.translation}
                 </p>
               ) : null}
               {card.example ? (
-                <p className="mt-1 text-sm italic ink-muted">“{card.example}”</p>
+                <p className="mt-1 text-sm italic ink-muted">„{card.example}“</p>
               ) : null}
             </div>
           ) : null}
@@ -513,11 +468,11 @@ export default function SpellingTab({ cards }: { cards: GermanCard[] }) {
 
       {!checked ? (
         <button type="button" onClick={check} className="btn-primary w-full">
-          Check · Enter
+          Kiểm tra · Enter
         </button>
       ) : (
         <button type="button" onClick={next} className="btn-primary w-full">
-          {idx + 1 >= session.length ? "See results · Enter" : "Next word · Enter"}
+          {idx + 1 >= session.length ? "Xem kết quả · Enter" : "Từ tiếp · Enter"}
         </button>
       )}
     </div>

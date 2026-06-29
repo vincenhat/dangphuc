@@ -30,13 +30,13 @@ export interface ActiveTest {
 }
 
 const TOPIC_SUGGESTIONS = [
-  "Travel and holidays",
-  "Daily routines",
-  "Food and cooking",
-  "Technology in school",
-  "Hobbies and free time",
-  "City life vs countryside",
-  "Work and careers",
+  "Reisen und Urlaub",
+  "Tagesabläufe",
+  "Essen und Kochen",
+  "Technologie in der Schule",
+  "Hobbys und Freizeit",
+  "Stadtleben und Landleben",
+  "Arbeit und Beruf",
 ];
 
 export default function TestsTab({
@@ -76,7 +76,7 @@ export default function TestsTab({
 
   async function generate() {
     if (!topic.trim()) {
-      onError("Pick a topic first.");
+      onError("Chọn chủ đề trước đã.");
       return;
     }
     setGenerating(true);
@@ -92,7 +92,7 @@ export default function TestsTab({
         error?: string;
       };
       if (!res.ok || !data.id || !data.test) {
-        throw new Error(data.error || "Could not generate test");
+        throw new Error(data.error || "Không tạo được đề");
       }
       setActive({
         id: data.id,
@@ -103,7 +103,7 @@ export default function TestsTab({
       });
       void loadHistory();
     } catch (err) {
-      onError(err instanceof Error ? err.message : "Generate failed");
+      onError(err instanceof Error ? err.message : "Tạo thất bại");
     } finally {
       setGenerating(false);
     }
@@ -122,7 +122,7 @@ export default function TestsTab({
         status: "in_progress" | "submitted";
         error?: string;
       };
-      if (!res.ok) throw new Error(data.error || "Could not open test");
+      if (!res.ok) throw new Error(data.error || "Không mở được đề");
       setActive({
         id: data.id,
         test: data.test,
@@ -131,12 +131,12 @@ export default function TestsTab({
         status: data.status,
       });
     } catch (err) {
-      onError(err instanceof Error ? err.message : "Open failed");
+      onError(err instanceof Error ? err.message : "Mở thất bại");
     }
   }
 
   async function deleteTest(id: string) {
-    if (!window.confirm("Delete this test and its result?")) return;
+    if (!window.confirm("Xoá đề này và kết quả?")) return;
     setHistory((prev) => prev.filter((x) => x.id !== id));
     if (active?.id === id) setActive(null);
     await fetch(`/api/german/tests/${encodeURIComponent(id)}`, {
@@ -173,20 +173,21 @@ export default function TestsTab({
     <div className="grid gap-5 lg:grid-cols-[1fr_360px]">
       {/* Generator */}
       <section className="surface p-5">
-        <h3 className="text-sm font-semibold tracking-tight">New practice test</h3>
+        <h3 className="text-sm font-semibold tracking-tight">Đề thi mới · Neuer Übungstest</h3>
         <p className="mt-1 text-xs ink-muted">
-          AI builds a CEFR-style test with reading, vocabulary, grammar, and writing sections. Multiple choice is graded automatically; writing is graded by Gemini.
+          AI tạo đề CEFR với 4 phần: Lesen, Wortschatz, Grammatik, Schreiben.
+          Trắc nghiệm tự chấm; phần viết do AI chấm bằng tiêu chí DaF.
         </p>
 
         <div className="mt-4 grid gap-3 md:grid-cols-[1fr_140px_auto]">
           <label className="block">
-            <span className="block text-xs font-medium ink-muted">Topic</span>
+            <span className="block text-xs font-medium ink-muted">Chủ đề · Thema</span>
             <input
               list="topic-suggestions"
               value={topic}
               onChange={(e) => setTopic(e.target.value)}
               maxLength={120}
-              placeholder="e.g. Travel and holidays"
+              placeholder="vd. Reisen und Urlaub"
               className="input mt-1"
             />
             <datalist id="topic-suggestions">
@@ -196,7 +197,7 @@ export default function TestsTab({
             </datalist>
           </label>
           <label className="block">
-            <span className="block text-xs font-medium ink-muted">CEFR level</span>
+            <span className="block text-xs font-medium ink-muted">Mức · CEFR</span>
             <select
               value={cefr}
               onChange={(e) => setCefr(e.target.value as CefrLevel)}
@@ -216,26 +217,27 @@ export default function TestsTab({
               disabled={generating}
               className="btn-primary w-full md:w-auto"
             >
-              {generating ? "Generating…" : "Generate test"}
+              {generating ? "Đang tạo…" : "Tạo đề"}
             </button>
           </div>
         </div>
 
         <p className="mt-3 text-xs ink-muted">
-          A typical test takes about 10-20 minutes. Generation costs one Gemini call; submitting costs one more (for writing feedback).
+          Một đề mất khoảng 10–20 phút. Tạo đề tốn 1 lần gọi AI; nộp bài tốn
+          thêm 1 lần nữa (chấm Schreiben).
         </p>
       </section>
 
       {/* History */}
       <aside className="surface flex h-fit flex-col">
         <header className="border-b hairline px-4 py-3">
-          <p className="text-sm font-semibold tracking-tight">Past tests</p>
-          <p className="mt-0.5 text-xs ink-muted">Last 50</p>
+          <p className="text-sm font-semibold tracking-tight">Đề đã làm</p>
+          <p className="mt-0.5 text-xs ink-muted">50 gần nhất</p>
         </header>
         {historyLoading ? (
-          <p className="px-4 py-6 text-sm ink-muted">Loading…</p>
+          <p className="px-4 py-6 text-sm ink-muted">Đang tải…</p>
         ) : history.length === 0 ? (
-          <p className="px-4 py-6 text-sm ink-muted">No tests yet.</p>
+          <p className="px-4 py-6 text-sm ink-muted">Chưa có đề nào.</p>
         ) : (
           <ul
             className="max-h-[60vh] divide-y overflow-y-auto"
@@ -262,7 +264,7 @@ export default function TestsTab({
                       {t.cefr} ·{" "}
                       {submitted
                         ? `${t.score}/${t.max_score}${pct !== null ? ` (${pct}%)` : ""}`
-                        : "in progress"}
+                        : "đang làm"}
                       {" · "}
                       {formatDate(t.created_at)}
                     </p>
@@ -291,7 +293,7 @@ export default function TestsTab({
                   <button
                     type="button"
                     onClick={() => deleteTest(t.id)}
-                    aria-label="Delete test"
+                    aria-label="Xoá đề"
                     className="ink-muted hover:text-[var(--ink)]"
                   >
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">

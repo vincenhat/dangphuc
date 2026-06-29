@@ -9,7 +9,7 @@
  *
  *  - "Highlight"  → tint the selection. Persisted in the parent so it survives
  *                   tab switches and (optionally) page reloads.
- *  - "Save word"  → fires `onSaveWord` with the selected text and the
+ *  - "Lưu từ"  → fires `onSaveWord` with the selected text and the
  *                   sentence containing it; the parent decides what to do
  *                   (open a quick-add modal for the deck).
  *

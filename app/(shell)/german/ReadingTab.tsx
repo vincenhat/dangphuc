@@ -38,14 +38,14 @@ export interface ActiveReading {
 }
 
 const TOPIC_SUGGESTIONS = [
-  "Ramen and street food in Tokyo",
-  "How birds find their way home",
-  "A weekend in Da Nang",
-  "Why students need sleep",
-  "Smartphones and learning",
-  "The Lunar New Year",
-  "Working from a coffee shop",
-  "Saving money as a student",
+  "Kaffee und Kuchen in Wien",
+  "Ein Wochenende in Berlin",
+  "Wie Vögel den Heimweg finden",
+  "Warum Schüler genug schlafen müssen",
+  "Smartphones und das Lernen",
+  "Das deutsche Oktoberfest",
+  "Arbeiten im Café",
+  "Geld sparen als Student",
 ];
 
 export default function ReadingTab({
@@ -99,7 +99,7 @@ export default function ReadingTab({
 
   async function generate() {
     if (!topic.trim()) {
-      onError("Pick a topic first.");
+      onError("Chọn chủ đề trước đã.");
       return;
     }
     setGenerating(true);
@@ -115,12 +115,12 @@ export default function ReadingTab({
         error?: string;
       };
       if (!res.ok || !data.id || !data.reading) {
-        throw new Error(data.error || "Could not generate reading");
+        throw new Error(data.error || "Không tạo được bài đọc");
       }
       setActive({ id: data.id, reading: data.reading });
       void loadHistory();
     } catch (err) {
-      onError(err instanceof Error ? err.message : "Generate failed");
+      onError(err instanceof Error ? err.message : "Tạo thất bại");
     } finally {
       setGenerating(false);
     }
@@ -136,19 +136,19 @@ export default function ReadingTab({
         | (Reading & { id: string })
         | { error?: string };
       if (!res.ok || !("id" in data)) {
-        throw new Error("Could not open reading");
+        throw new Error("Không mở được bài đọc");
       }
       setActive({
         id: (data as Reading & { id: string }).id,
         reading: data as Reading,
       });
     } catch (err) {
-      onError(err instanceof Error ? err.message : "Open failed");
+      onError(err instanceof Error ? err.message : "Mở thất bại");
     }
   }
 
   async function deleteReading(id: string) {
-    if (!window.confirm("Delete this reading?")) return;
+    if (!window.confirm("Xoá bài đọc này?")) return;
     setHistory((prev) => prev.filter((x) => x.id !== id));
     if (active?.id === id) setActive(null);
     await fetch(`/api/german/readings/${encodeURIComponent(id)}`, {
@@ -174,22 +174,22 @@ export default function ReadingTab({
     <div className="grid gap-5 lg:grid-cols-[1fr_360px]">
       {/* Generator */}
       <section className="surface p-5">
-        <h3 className="text-sm font-semibold tracking-tight">New reading</h3>
+        <h3 className="text-sm font-semibold tracking-tight">Bài đọc mới · Neue Lektüre</h3>
         <p className="mt-1 text-xs ink-muted">
-          AI writes a short, level-appropriate passage with key vocabulary and
-          comprehension questions. Highlight any word as you read to save it
-          to your deck.
+          AI viết một đoạn ngắn bằng tiếng Đức, phù hợp với mức CEFR bạn chọn,
+          kèm từ vựng trọng tâm (có mạo từ) và câu hỏi hiểu. Highlight từ bất kỳ
+          để lưu vào bộ thẻ.
         </p>
 
         <div className="mt-4 grid gap-3 md:grid-cols-[1fr_140px_160px_auto]">
           <label className="block">
-            <span className="block text-xs font-medium ink-muted">Topic</span>
+            <span className="block text-xs font-medium ink-muted">Chủ đề · Thema</span>
             <input
               list="reading-topic-suggestions"
               value={topic}
               onChange={(e) => setTopic(e.target.value)}
               maxLength={120}
-              placeholder="e.g. A weekend in Da Nang"
+              placeholder="vd. Ein Wochenende in Berlin"
               className="input mt-1"
             />
             <datalist id="reading-topic-suggestions">
@@ -200,7 +200,7 @@ export default function ReadingTab({
           </label>
 
           <label className="block">
-            <span className="block text-xs font-medium ink-muted">CEFR level</span>
+            <span className="block text-xs font-medium ink-muted">Mức · CEFR</span>
             <select
               value={cefr}
               onChange={(e) => setCefr(e.target.value as CefrLevel)}
@@ -215,7 +215,7 @@ export default function ReadingTab({
           </label>
 
           <label className="block">
-            <span className="block text-xs font-medium ink-muted">Category</span>
+            <span className="block text-xs font-medium ink-muted">Thể loại · Kategorie</span>
             <select
               value={category}
               onChange={(e) => setCategory(e.target.value as ReadingCategory)}
@@ -236,7 +236,7 @@ export default function ReadingTab({
               disabled={generating}
               className="btn-primary w-full md:w-auto"
             >
-              {generating ? "Writing…" : "Generate"}
+              {generating ? "Đang viết…" : "Tạo bài"}
             </button>
           </div>
         </div>
@@ -262,30 +262,30 @@ export default function ReadingTab({
         </div>
 
         <p className="mt-3 text-xs ink-muted">
-          One reading costs one Gemini call. Length scales with level — A1
-          stays short, C1+ goes longer.
+          Mỗi bài đọc tốn một lần gọi AI. Độ dài thay đổi theo mức: A1 ngắn,
+          C1+ dài hơn.
         </p>
       </section>
 
       {/* History */}
       <aside className="surface flex h-fit flex-col">
         <header className="border-b hairline px-4 py-3">
-          <p className="text-sm font-semibold tracking-tight">Saved readings</p>
-          <p className="mt-0.5 text-xs ink-muted">Last 50</p>
+          <p className="text-sm font-semibold tracking-tight">Bài đọc đã lưu</p>
+          <p className="mt-0.5 text-xs ink-muted">50 gần nhất</p>
           <div className="mt-2 flex flex-wrap items-center gap-2">
             <input
               value={filterQ}
               onChange={(e) => setFilterQ(e.target.value)}
-              placeholder="Search topic…"
+              placeholder="Tìm chủ đề…"
               className="input !w-32 !py-1 !text-xs"
             />
             <select
               value={filterCefr}
               onChange={(e) => setFilterCefr(e.target.value as CefrLevel | "")}
               className="input !w-auto !py-1 !text-xs"
-              aria-label="Filter by level"
+              aria-label="Lọc theo mức"
             >
-              <option value="">All levels</option>
+              <option value="">Tất cả mức</option>
               {CEFR_LEVELS.map((l) => (
                 <option key={l} value={l}>
                   {l}
@@ -298,9 +298,9 @@ export default function ReadingTab({
                 setFilterCategory(e.target.value as ReadingCategory | "")
               }
               className="input !w-auto !py-1 !text-xs"
-              aria-label="Filter by category"
+              aria-label="Lọc theo thể loại"
             >
-              <option value="">All categories</option>
+              <option value="">Tất cả thể loại</option>
               {READING_CATEGORIES.map((c) => (
                 <option key={c} value={c}>
                   {c}
@@ -310,9 +310,9 @@ export default function ReadingTab({
           </div>
         </header>
         {historyLoading ? (
-          <p className="px-4 py-6 text-sm ink-muted">Loading…</p>
+          <p className="px-4 py-6 text-sm ink-muted">Đang tải…</p>
         ) : history.length === 0 ? (
-          <p className="px-4 py-6 text-sm ink-muted">No readings yet.</p>
+          <p className="px-4 py-6 text-sm ink-muted">Chưa có bài đọc nào.</p>
         ) : (
           <ul
             className="max-h-[60vh] divide-y overflow-y-auto"
@@ -338,7 +338,7 @@ export default function ReadingTab({
                 <button
                   type="button"
                   onClick={() => deleteReading(r.id)}
-                  aria-label="Delete reading"
+                  aria-label="Xoá bài đọc"
                   className="ink-muted hover:text-[var(--ink)]"
                 >
                   <svg

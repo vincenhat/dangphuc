@@ -8,12 +8,32 @@ import {
 import type { GermanCard } from "@/lib/german";
 import { speakWord } from "./speak";
 
-const GRADE_BUTTONS: { grade: Grade; label: string; bg: string }[] = [
-  { grade: "again", label: "Again", bg: "#ef4444" },
-  { grade: "hard", label: "Hard", bg: "#f59e0b" },
-  { grade: "good", label: "Good", bg: "#16a34a" },
-  { grade: "easy", label: "Easy", bg: "var(--accent)" },
+const GRADE_BUTTONS: { grade: Grade; label: string; sub: string; bg: string }[] = [
+  { grade: "again", label: "Lại", sub: "Nochmal", bg: "#ef4444" },
+  { grade: "hard", label: "Khó", sub: "Schwer", bg: "#f59e0b" },
+  { grade: "good", label: "Tốt", sub: "Gut", bg: "#16a34a" },
+  { grade: "easy", label: "Dễ", sub: "Einfach", bg: "var(--accent)" },
 ];
+
+/** Show "der/die/das + Wort" for nouns so memorising gender is forced. */
+function frontLabel(card: GermanCard): string {
+  if (card.pos === "noun" && card.article) {
+    return `${card.article} ${card.word}`;
+  }
+  return card.word;
+}
+
+/** Format interval into a short Vietnamese label. */
+function viInterval(days: number): string {
+  if (days <= 0) return "hôm nay";
+  if (days === 1) return "1 ngày";
+  if (days < 30) return `${days} ngày`;
+  const months = Math.round(days / 30);
+  if (months === 1) return "1 tháng";
+  if (months < 12) return `${months} tháng`;
+  const years = Math.round(months / 12);
+  return years === 1 ? "1 năm" : `${years} năm`;
+}
 
 export default function ReviewTab({
   initial,
@@ -31,7 +51,7 @@ export default function ReviewTab({
   const [completedToday, setCompletedToday] = useState(0);
   const [lastInterval, setLastInterval] = useState<number | null>(null);
 
-  // If the prop changes (parent reloaded), re-seed the queue.
+  // Re-seed when parent reloads.
   useEffect(() => {
     setQueue(initial);
     setRevealed(false);
@@ -56,19 +76,19 @@ export default function ReviewTab({
           nextInterval?: number;
           error?: string;
         };
-        if (!res.ok || !data.ok) throw new Error(data.error || "Save failed");
+        if (!res.ok || !data.ok) throw new Error(data.error || "Lưu thất bại");
         setLastInterval(data.nextInterval ?? null);
         setQueue((prev) => prev.slice(1));
         setRevealed(false);
         setCompletedToday((n) => n + 1);
       } catch (err) {
-        onError(err instanceof Error ? err.message : "Save failed");
+        onError(err instanceof Error ? err.message : "Lưu thất bại");
       }
     },
     [card, onError],
   );
 
-  // Keyboard: Space = reveal/next, 1..4 = grade
+  // Keyboard: Space/Enter to reveal then 1-4 to grade.
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (!card) return;
@@ -91,39 +111,43 @@ export default function ReviewTab({
   if (!card) {
     return (
       <div className="surface p-10 text-center">
-        <h3 className="text-lg font-semibold tracking-tight">All caught up</h3>
+        <h3 className="text-lg font-semibold tracking-tight">Xong rồi · Geschafft</h3>
         <p className="mt-2 ink-muted">
           {completedToday > 0
-            ? `You reviewed ${completedToday} card${completedToday === 1 ? "" : "s"} today. Come back tomorrow.`
-            : "No cards are due. Add new ones from the Decks tab, or wait for tomorrow."}
+            ? `Bạn đã ôn ${completedToday} thẻ hôm nay. Hẹn lại ngày mai nhé.`
+            : "Chưa có thẻ nào đến hạn. Thêm thẻ ở tab Decks hoặc đợi đến mai."}
         </p>
         <button
           type="button"
           onClick={() => onChanged()}
           className="btn-ghost mt-4 text-xs"
         >
-          Reload
+          Tải lại
         </button>
       </div>
     );
   }
 
+  const front = frontLabel(card);
+  const isNoun = card.pos === "noun";
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-baseline justify-between gap-2 px-1">
         <p className="text-sm ink-muted">
-          {remaining} due · {completedToday} done today · {today}
+          {remaining} thẻ đến hạn · {completedToday} thẻ đã xong · {today}
         </p>
         {lastInterval !== null ? (
           <p className="text-xs ink-muted">
-            Last card scheduled in {formatInterval(lastInterval)}.
+            Thẻ vừa rồi: gặp lại sau {viInterval(lastInterval)}.
           </p>
         ) : null}
       </div>
 
+      {/* Front of the card: article + word for nouns, plain word otherwise */}
       <article className="surface p-8">
         <div className="flex flex-wrap items-center gap-3">
-          <h3 className="text-3xl font-semibold tracking-tight">{card.word}</h3>
+          <h3 className="text-3xl font-semibold tracking-tight">{front}</h3>
           {card.cefr ? (
             <span
               className="rounded-capsule px-2.5 py-0.5 text-xs"
@@ -135,13 +159,18 @@ export default function ReviewTab({
               {card.cefr}
             </span>
           ) : null}
+          {card.pos ? (
+            <span className="text-xs uppercase tracking-wider ink-muted">
+              {posLabel(card.pos)}
+            </span>
+          ) : null}
           {card.ipa ? <p className="text-sm ink-muted">{card.ipa}</p> : null}
           <button
             type="button"
             onClick={() => speakWord(card.word)}
             className="btn-ghost ml-auto !px-2 text-xs"
-            aria-label={`Pronounce ${card.word}`}
-            title="Listen"
+            aria-label={`Phát âm ${card.word}`}
+            title="Nghe phát âm"
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
               <path d="M3 10v4a1 1 0 0 0 1 1h3l5 4V5L7 9H4a1 1 0 0 0-1 1z" />
@@ -151,27 +180,37 @@ export default function ReviewTab({
           </button>
         </div>
 
+        {/* Back of the card, fades in on reveal */}
         <div
           className={`mt-6 transition-opacity ${revealed ? "opacity-100" : "opacity-0"}`}
           aria-hidden={!revealed}
         >
+          {isNoun && card.plural ? (
+            <p
+              className="mb-3 text-base font-medium"
+              style={{ color: "var(--accent-link)" }}
+            >
+              Plural · die {card.plural}
+            </p>
+          ) : null}
+
+          {card.translation ? (
+            <p
+              className="text-base font-medium"
+              style={{ color: "var(--accent-link)" }}
+            >
+              {card.translation}
+            </p>
+          ) : null}
           {card.definition ? (
-            <p className="text-base leading-relaxed">{card.definition}</p>
+            <p className="mt-2 text-base leading-relaxed">{card.definition}</p>
           ) : null}
           {card.example ? (
             <p
               className="mt-3 text-base italic"
               style={{ color: "var(--ink-muted)" }}
             >
-              “{card.example}”
-            </p>
-          ) : null}
-          {card.translation ? (
-            <p
-              className="mt-3 text-sm"
-              style={{ color: "var(--accent-link)" }}
-            >
-              VI · {card.translation}
+              „{card.example}“
             </p>
           ) : null}
           {card.tags ? (
@@ -186,7 +225,7 @@ export default function ReviewTab({
           onClick={() => setRevealed(true)}
           className="btn-primary w-full"
         >
-          Show answer · Space
+          Hiện đáp án · Phím Space
         </button>
       ) : (
         <div className="grid grid-cols-4 gap-2">
@@ -195,15 +234,32 @@ export default function ReviewTab({
               key={g.grade}
               type="button"
               onClick={() => handleGrade(g.grade)}
-              className="rounded-md px-3 py-3 text-sm font-medium text-white transition-opacity hover:opacity-90"
+              className="flex flex-col items-center rounded-md px-3 py-3 text-sm font-medium text-white transition-opacity hover:opacity-90"
               style={{ background: g.bg }}
+              title={g.sub}
             >
-              <span className="block">{g.label}</span>
-              <span className="block text-[10px] opacity-80">{i + 1}</span>
+              <span className="block leading-tight">{g.label}</span>
+              <span className="block text-[10px] opacity-90">{g.sub}</span>
+              <span className="mt-1 block text-[10px] opacity-80">{i + 1}</span>
             </button>
           ))}
         </div>
       )}
     </div>
   );
+}
+
+function posLabel(pos: NonNullable<GermanCard["pos"]>): string {
+  switch (pos) {
+    case "noun":
+      return "Substantiv";
+    case "verb":
+      return "Verb";
+    case "adjective":
+      return "Adjektiv";
+    case "adverb":
+      return "Adverb";
+    default:
+      return "";
+  }
 }

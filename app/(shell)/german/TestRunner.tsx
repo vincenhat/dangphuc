@@ -123,7 +123,7 @@ export default function TestRunner({
   }
 
   function clearAllHighlights() {
-    if (!window.confirm("Clear all highlights in this test?")) return;
+    if (!window.confirm("Xoá toàn bộ highlight trong đề?")) return;
     setHighlights({});
   }
 
@@ -181,14 +181,14 @@ export default function TestRunner({
         error?: string;
       };
       if (!res.ok || !data.ok || !data.feedback) {
-        throw new Error(data.error || "Submit failed");
+        throw new Error(data.error || "Nộp thất bại");
       }
       setFeedback(data.feedback);
       setStatus("submitted");
       onSubmitted?.(data.feedback);
       window.scrollTo({ top: 0, behavior: "smooth" });
     } catch (err) {
-      onError(err instanceof Error ? err.message : "Submit failed");
+      onError(err instanceof Error ? err.message : "Nộp thất bại");
     } finally {
       setSubmitting(false);
     }
@@ -210,10 +210,10 @@ export default function TestRunner({
     if (mcqUnanswered === 0 && !writingShort) return true;
     const messages: string[] = [];
     if (mcqUnanswered > 0)
-      messages.push(`${mcqUnanswered} multiple-choice question${mcqUnanswered === 1 ? "" : "s"} unanswered`);
-    if (writingShort) messages.push("writing is shorter than the minimum");
+      messages.push(`${mcqUnanswered} câu trắc nghiệm chưa trả lời`);
+    if (writingShort) messages.push("phần viết ngắn hơn mức tối thiểu");
     return window.confirm(
-      `Submit anyway? (${messages.join(", ")}). You can't change answers after submitting.`,
+      `Vẫn nộp bài? (${messages.join(", ")}). Bạn không sửa được sau khi nộp.`,
     );
   }
 
@@ -226,7 +226,7 @@ export default function TestRunner({
             {test.cefr} · {test.topic}
           </p>
           <p className="text-sm font-semibold tracking-tight">
-            {submitted ? "Result" : "Practice test"}
+            {submitted ? "Kết quả" : "Đề luyện"}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -254,8 +254,8 @@ export default function TestRunner({
         >
           <span aria-hidden style={{ color: "rgba(245,197,24,1)" }}>●</span>
           <p className="ink-muted">
-            Tip: select any text in this test to highlight it or save it as a
-            vocabulary card.
+            Mẹo: bôi đen text bất kỳ trong đề để highlight hoặc lưu thành thẻ
+            từ vựng.
           </p>
         </div>
       ) : null}
@@ -297,7 +297,7 @@ export default function TestRunner({
       {!submitted ? (
         <div className="flex flex-wrap items-center justify-between gap-2">
           <p className="text-xs ink-muted">
-            {countAnswered(test, answers)} / {countQuestions(test)} answered
+            {countAnswered(test, answers)} / {countQuestions(test)} đã trả lời
           </p>
           <button
             type="button"
@@ -305,7 +305,7 @@ export default function TestRunner({
             disabled={submitting}
             className="btn-primary"
           >
-            {submitting ? "Grading…" : "Submit & grade"}
+            {submitting ? "Đang chấm…" : "Nộp bài & chấm"}
           </button>
         </div>
       ) : null}
@@ -349,7 +349,7 @@ function ScoreBanner({ feedback }: { feedback: TestFeedback }) {
               color: "var(--ink)",
             }}
           >
-            <span className="capitalize">{s.kind}</span> · {s.scored}/{s.total}
+            <span>{sectionKindLabel(s.kind)}</span> · {s.scored}/{s.total}
           </span>
         ))}
       </div>
@@ -459,8 +459,8 @@ function ReadingBlock({
   return (
     <section className="surface p-5">
       <SectionHeader
-        title="Reading"
-        hint="Read the passage, then answer the questions. Select any word to highlight or save it."
+        title="Đọc hiểu"
+        hint="Đọc đoạn văn rồi trả lời câu hỏi. Bôi đen từ bất kỳ để highlight hoặc lưu thẻ."
       />
       <div
         className="mt-3 rounded-md p-4 leading-relaxed"
@@ -522,11 +522,11 @@ function McqBlock({
   removeRange: (key: string, index: number) => void;
   onSaveWord: (word: string, sentence: string) => void;
 }) {
-  const title = section.kind.charAt(0).toUpperCase() + section.kind.slice(1);
+  const title = section.kind === "vocabulary" ? "Wortschatz · Từ vựng" : "Grammatik · Ngữ pháp";
   const hint =
     section.kind === "vocabulary"
-      ? "Pick the best word or meaning. Select any word to save it."
-      : "Pick the grammatically correct option. Select text to take notes.";
+      ? "Chọn từ/nghĩa phù hợp nhất. Bôi đen từ bất kỳ để lưu thẻ."
+      : "Chọn phương án đúng ngữ pháp. Bôi đen text để ghi chú.";
   return (
     <section className="surface p-5">
       <SectionHeader title={title} hint={hint} />
@@ -632,7 +632,7 @@ function McqQuestion({
                   onClick={() => onPick(i)}
                   disabled={submitted}
                   className="inline-flex h-5 w-5 shrink-0 cursor-pointer items-center justify-center rounded-full border text-[10px] disabled:cursor-default"
-                  aria-label={`Choose option ${String.fromCharCode(65 + i)}`}
+                  aria-label={`Chọn phương án ${String.fromCharCode(65 + i)}`}
                   style={{
                     borderColor: selected ? "var(--accent)" : "var(--border-soft)",
                     background: selected ? "var(--accent)" : "transparent",
@@ -691,8 +691,8 @@ function WritingBlock({
   return (
     <section className="surface p-5">
       <SectionHeader
-        title="Writing"
-        hint={`Write ${section.minWords}-${section.maxWords} words. Graded by AI.`}
+        title="Phần viết"
+        hint={`Viết ${section.minWords}-${section.maxWords} từ. AI chấm bài.`}
       />
       <div
         className="mt-3 rounded-md p-3 text-sm leading-relaxed"
@@ -713,19 +713,19 @@ function WritingBlock({
         onChange={(e) => onSet("w1", e.target.value)}
         disabled={submitted}
         maxLength={4000}
-        placeholder="Write your response here…"
+        placeholder="Hãy viết câu trả lời tại đây…"
         className="input mt-3 min-h-[200px] resize-y"
       />
       <p className="mt-1 text-xs ink-muted">
-        {wc} word{wc === 1 ? "" : "s"}
-        {wc < section.minWords && !submitted ? " · keep going" : ""}
-        {wc > section.maxWords && !submitted ? " · over the limit" : ""}
+        {wc} từ{wc === 1 ? "" : "s"}
+        {wc < section.minWords && !submitted ? " · cần thêm" : ""}
+        {wc > section.maxWords && !submitted ? " · vượt quá giới hạn" : ""}
       </p>
 
       {submitted && feedback ? (
         <div className="mt-4 space-y-3 border-t hairline pt-4">
           <p className="text-sm">
-            <span className="font-semibold">Writing score: </span>
+            <span className="font-semibold">Điểm phần viết: </span>
             <span style={{ color: "var(--accent)" }}>
               {feedback.writingScore ?? 0} / {feedback.total}
             </span>
@@ -795,4 +795,20 @@ function countQuestions(test: TestStructure): number {
     else n += sec.questions.length;
   }
   return n;
+}
+
+
+function sectionKindLabel(kind: Section["kind"]): string {
+  switch (kind) {
+    case "reading":
+      return "Lesen";
+    case "vocabulary":
+      return "Wortschatz";
+    case "grammar":
+      return "Grammatik";
+    case "writing":
+      return "Schreiben";
+    default:
+      return kind;
+  }
 }

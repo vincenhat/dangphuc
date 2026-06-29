@@ -57,7 +57,7 @@ export default function QuickWordSave({
       const res = await fetch("/api/german/generate", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ word: w, model: getStoredModel() ?? undefined }),
+        body: JSON.stringify({ từ: w, model: getStoredModel() ?? undefined }),
       });
       const data = (await res.json()) as {
         definition?: string;
@@ -67,7 +67,7 @@ export default function QuickWordSave({
         cefr?: string | null;
         error?: string;
       };
-      if (!res.ok) throw new Error(data.error || "AI failed");
+      if (!res.ok) throw new Error(data.error || "AI thất bại");
       if (data.definition) setDefinition(data.definition);
       // Keep the lesson sentence as the example if AI didn't return one.
       if (data.example && !example.trim()) setExample(data.example);
@@ -76,7 +76,7 @@ export default function QuickWordSave({
         setCefr(data.cefr as CefrLevel);
       }
     } catch (err) {
-      onError(err instanceof Error ? err.message : "AI failed");
+      onError(err instanceof Error ? err.message : "AI thất bại");
     } finally {
       setGenerating(false);
     }
@@ -105,7 +105,7 @@ export default function QuickWordSave({
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
-          word: w,
+          từ: w,
           definition: definition.trim(),
           example: example.trim(),
           translation: translation.trim(),
@@ -115,11 +115,11 @@ export default function QuickWordSave({
       });
       if (!res.ok) {
         const data = (await res.json().catch(() => ({}))) as { error?: string };
-        throw new Error(data.error || "Save failed");
+        throw new Error(data.error || "Lưu thất bại");
       }
       onSaved(w);
     } catch (err) {
-      onError(err instanceof Error ? err.message : "Save failed");
+      onError(err instanceof Error ? err.message : "Lưu thất bại");
     } finally {
       setSaving(false);
     }
@@ -129,7 +129,7 @@ export default function QuickWordSave({
     <div
       role="dialog"
       aria-modal="true"
-      aria-label="Save vocabulary card"
+      aria-label="Lưu thẻ từ vựng"
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
       style={{ background: "rgba(0,0,0,0.45)" }}
       onClick={(e) => {
@@ -145,7 +145,7 @@ export default function QuickWordSave({
           <button
             type="button"
             onClick={onClose}
-            aria-label="Close"
+            aria-label="Đóng"
             className="text-xs ink-muted hover:text-[var(--ink)]"
           >
             ✕
@@ -160,7 +160,7 @@ export default function QuickWordSave({
           className="space-y-3"
         >
           <label className="block">
-            <span className="block text-xs font-medium ink-muted">Word</span>
+            <span className="block text-xs font-medium ink-muted">Từ · Wort</span>
             <div className="mt-1 flex gap-2">
               <input
                 ref={inputRef}
@@ -175,16 +175,16 @@ export default function QuickWordSave({
                 onClick={aiFill}
                 disabled={generating || !word.trim()}
                 className="btn-ghost shrink-0 whitespace-nowrap text-xs"
-                title="Auto-fill definition, translation & level with AI"
+                title="AI điền tự động"
               >
-                {generating ? "…" : "AI fill ↗"}
+                {generating ? "…" : "AI ↗"}
               </button>
             </div>
           </label>
 
           <div className="grid grid-cols-2 gap-3">
             <label className="block">
-              <span className="block text-xs font-medium ink-muted">CEFR</span>
+              <span className="block text-xs font-medium ink-muted">Mức · CEFR</span>
               <select
                 value={cefr}
                 onChange={(e) => setCefr(e.target.value as CefrLevel)}
@@ -198,20 +198,20 @@ export default function QuickWordSave({
               </select>
             </label>
             <label className="block">
-              <span className="block text-xs font-medium ink-muted">Tags</span>
+              <span className="block text-xs font-medium ink-muted">Thẻ phân loại · Tags</span>
               <input
                 maxLength={120}
                 value={tags}
                 onChange={(e) => setTags(e.target.value)}
                 className="input mt-1"
-                placeholder="comma, separated"
+                placeholder="cách nhau bằng dấu phẩy"
               />
             </label>
           </div>
 
           <label className="block">
             <span className="block text-xs font-medium ink-muted">
-              Vietnamese (optional)
+              Tiếng Việt (không bắt buộc)
             </span>
             <input
               maxLength={280}
@@ -223,7 +223,7 @@ export default function QuickWordSave({
 
           <label className="block">
             <span className="block text-xs font-medium ink-muted">
-              Definition (optional)
+              Định nghĩa (không bắt buộc)
             </span>
             <textarea
               maxLength={1000}
@@ -235,7 +235,7 @@ export default function QuickWordSave({
 
           <label className="block">
             <span className="block text-xs font-medium ink-muted">
-              Example (auto-filled from passage)
+              Ví dụ (tự lấy từ đoạn văn)
             </span>
             <textarea
               maxLength={1000}
@@ -247,10 +247,10 @@ export default function QuickWordSave({
 
           <div className="flex justify-end gap-2 pt-1">
             <button type="button" onClick={onClose} className="btn-ghost text-sm">
-              Cancel
+              Huỷ
             </button>
             <button type="submit" className="btn-primary" disabled={saving}>
-              {saving ? "Saving…" : "Save card"}
+              {saving ? "Đang lưu…" : "Lưu thẻ"}
             </button>
           </div>
 

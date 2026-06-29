@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useCallback, useState } from "react";
 import type { GermanCard } from "@/lib/german";
@@ -18,13 +18,13 @@ import WritingTab from "./WritingTab";
 type Tab = "review" | "decks" | "spelling" | "reading" | "grammar" | "writing" | "tests";
 
 const TABS: { value: Tab; label: string; description: string }[] = [
-  { value: "review", label: "Review", description: "Karten heute fällig" },
-  { value: "decks", label: "Decks", description: "Dein Wortschatz" },
-  { value: "spelling", label: "Spelling", description: "Was du hörst, tippen" },
-  { value: "reading", label: "Reading", description: "Kurze Lesetexte" },
-  { value: "grammar", label: "Grammar", description: "Ngữ pháp tiếng Đức" },
-  { value: "writing", label: "Writing", description: "AI Feedback" },
-  { value: "tests", label: "Praxistest", description: "CEFR Übungstests" },
+  { value: "review", label: "Ôn tập", description: "Karten heute fällig" },
+  { value: "decks", label: "Bộ thẻ", description: "Dein Wortschatz" },
+  { value: "spelling", label: "Đánh vần", description: "Was du hörst, tippen" },
+  { value: "reading", label: "Đọc hiểu", description: "Kurze Lesetexte" },
+  { value: "grammar", label: "Ngữ pháp", description: "Grammatik" },
+  { value: "writing", label: "Viết", description: "AI Feedback" },
+  { value: "tests", label: "Đề thi", description: "CEFR Übungstests" },
 ];
 
 export default function GermanClient({
@@ -68,7 +68,7 @@ export default function GermanClient({
       setCards(allData.cards ?? []);
       setDue(dueData.cards ?? []);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Reload failed");
+      setError(err instanceof Error ? err.message : "Tải lại thất bại");
     }
   }, []);
 
@@ -114,8 +114,8 @@ export default function GermanClient({
               ) : null}
               {inProgress || readingOpen ? (
                 <span
-                  aria-label={inProgress ? "Test in progress" : "Reading open"}
-                  title={inProgress ? "Test in progress" : "Reading open"}
+                  aria-label={inProgress ? "Đang làm đề" : "Đang đọc"}
+                  title={inProgress ? "Đang làm đề" : "Đang đọc"}
                   className="inline-block h-2 w-2 rounded-full"
                   style={{ background: "var(--accent)" }}
                 />
@@ -132,7 +132,7 @@ export default function GermanClient({
             onClick={() => setError(null)}
             className="ml-3 text-xs ink-muted underline-offset-2 hover:underline"
           >
-            dismiss
+            đóng
           </button>
         </div>
       ) : null}
@@ -140,7 +140,7 @@ export default function GermanClient({
       {tab !== "review" && tab !== "spelling" ? (
         <div className="surface flex flex-wrap items-center justify-between gap-2 p-3">
           <p className="text-xs ink-muted">
-            AI model for generation, feedback &amp; grading.
+            Mô hình AI dùng để sinh đề, chấm bài và gợi ý.
           </p>
           <ModelPicker
             model={model}

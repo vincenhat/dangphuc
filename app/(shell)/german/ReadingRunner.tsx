@@ -5,8 +5,8 @@
  *
  * - Renders the passage with the same Highlightable used by the practice
  *   test, so users can highlight and save vocabulary while reading.
- * - Glossary card shows the AI-suggested key vocabulary; each word has a
- *   one-tap "Save card" that POSTs to /api/german/cards.
+ * - Glossary card shows the AI-suggested key vocabulary; each từ has a
+ *   one-tap "Lưu thẻ" that POSTs to /api/german/cards.
  * - Self-check questions are revealed on demand. Answers are kept entirely
  *   client-side (no DB writes) — this is for practice, not graded testing.
  */
@@ -120,7 +120,7 @@ export default function ReadingRunner({
           <p className="text-sm font-semibold tracking-tight">{reading.title}</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <span className="text-xs ink-muted">{wordCount} words</span>
+          <span className="text-xs ink-muted">{wordCount} từ</span>
           {highlights.length > 0 ? (
             <button
               type="button"
@@ -178,7 +178,7 @@ export default function ReadingRunner({
           <header className="flex items-baseline justify-between">
             <h3 className="text-sm font-semibold tracking-tight">Key vocabulary</h3>
             <p className="text-xs ink-muted">
-              {reading.glossary.length} word{reading.glossary.length === 1 ? "" : "s"}
+              {reading.glossary.length} từ{reading.glossary.length === 1 ? "" : "s"}
             </p>
           </header>
           <ul className="mt-3 grid gap-3 md:grid-cols-2">
@@ -246,7 +246,7 @@ export default function ReadingRunner({
               Self-check
             </h3>
             <p className="text-xs ink-muted">
-              {Object.keys(answers).length} / {reading.questions.length} answered
+              {Object.keys(answers).length} / {reading.questions.length} đã trả lời
             </p>
           </header>
           <ol className="mt-3 space-y-4">
@@ -292,7 +292,7 @@ export default function ReadingRunner({
                 className="btn-primary"
                 disabled={Object.keys(answers).length === 0}
               >
-                {revealed ? "Hide answers" : "Check answers"}
+                {revealed ? "Ẩn đáp án" : "Kiểm tra đáp án"}
               </button>
             </div>
           </div>

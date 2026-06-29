@@ -11,11 +11,32 @@ interface ApiResult {
   upgrades: WritingUpgrade[];
 }
 
+interface NounForm {
+  article: "der" | "die" | "das";
+  plural: string;
+  genitive_singular: string;
+  note: string;
+}
+interface VerbForm {
+  ich: string;
+  du: string;
+  er: string;
+  praeteritum: string;
+  partizip2: string;
+  perfekt_aux: "haben" | "sein";
+  type: "regular" | "irregular";
+  note: string;
+}
+interface AdjForm {
+  comparative: string;
+  superlative: string;
+  note: string;
+}
 interface WordForms {
   word: string;
-  noun: { plural: string; type: "regular" | "irregular"; note: string } | null;
-  verb: { v2: string; v3: string; type: "regular" | "irregular"; note: string } | null;
-  adjective: { comparative: string; superlative: string; note: string } | null;
+  noun: NounForm | null;
+  verb: VerbForm | null;
+  adjective: AdjForm | null;
   note?: string;
 }
 
@@ -24,6 +45,13 @@ const ISSUE_TONE: Record<WritingIssue["type"], string> = {
   spelling: "#f59e0b",
   punctuation: "#0ea5e9",
   style: "#a855f7",
+};
+
+const ISSUE_LABEL: Record<WritingIssue["type"], string> = {
+  grammar: "Ngữ pháp",
+  spelling: "Chính tả",
+  punctuation: "Dấu câu",
+  style: "Văn phong",
 };
 
 export default function WritingTab({
@@ -52,20 +80,18 @@ export default function WritingTab({
         body: JSON.stringify({ text: t, model }),
       });
       const data = (await res.json()) as Partial<ApiResult> & { error?: string };
-      if (!res.ok) throw new Error(data.error || "Check failed");
-      const next: ApiResult = {
+      if (!res.ok) throw new Error(data.error || "Kiểm tra thất bại");
+      setResult({
         id: data.id ?? "",
         corrected: data.corrected ?? "",
         issues: data.issues ?? [],
         upgrades: data.upgrades ?? [],
-      };
-      setResult(next);
-      // Reload history so the new entry shows up.
+      });
       const hres = await fetch("/api/german/writing");
       const hdata = (await hres.json()) as { entries?: WritingEntry[] };
       setHistory(hdata.entries ?? []);
     } catch (err) {
-      onError(err instanceof Error ? err.message : "Check failed");
+      onError(err instanceof Error ? err.message : "Kiểm tra thất bại");
     } finally {
       setBusy(false);
     }
@@ -82,7 +108,7 @@ export default function WritingTab({
   }
 
   async function deleteEntry(id: string) {
-    if (!window.confirm("Delete this writing entry?")) return;
+    if (!window.confirm("Xoá bài viết này?")) return;
     setHistory((prev) => prev.filter((x) => x.id !== id));
     if (result?.id === id) setResult(null);
     await fetch(`/api/german/writing?id=${encodeURIComponent(id)}`, {
@@ -92,30 +118,29 @@ export default function WritingTab({
 
   return (
     <div className="grid gap-5 lg:grid-cols-[1fr_360px]">
-      {/* Editor + result */}
       <div className="space-y-5">
         <WordFormsEngine model={model} onError={onError} />
 
         <div className="surface p-4">
           <p className="mb-2 text-xs uppercase tracking-[0.16em] ink-muted">
-            Your text
+            Bài viết của bạn · Dein Text
           </p>
           <textarea
             value={text}
             onChange={(e) => setText(e.target.value)}
-            placeholder="Paste a paragraph (max ~4000 chars). Try writing about your day, a movie, or your weekend plans."
+            placeholder="Dán đoạn văn tiếng Đức (tối đa ~4000 ký tự). Thử viết về ngày của bạn, bộ phim, hay kế hoạch cuối tuần."
             maxLength={4000}
             className="input min-h-[180px] resize-y"
           />
           <div className="mt-3 flex items-center justify-between">
-            <p className="text-xs ink-muted">{text.length} / 4000 chars</p>
+            <p className="text-xs ink-muted">{text.length} / 4000 ký tự</p>
             <button
               type="button"
               onClick={check}
               disabled={busy || !text.trim()}
               className="btn-primary"
             >
-              {busy ? "Checking…" : "Check writing"}
+              {busy ? "Đang kiểm tra…" : "Kiểm tra bài viết"}
             </button>
           </div>
         </div>
@@ -124,11 +149,11 @@ export default function WritingTab({
           <>
             <section className="surface p-4">
               <p className="mb-2 text-xs uppercase tracking-[0.16em] ink-muted">
-                Corrected version
+                Bản sửa · Korrigierte Version
               </p>
               <p className="whitespace-pre-wrap text-base leading-relaxed">
                 {result.corrected || (
-                  <span className="ink-muted">Looks good, no rewrite needed.</span>
+                  <span className="ink-muted">Không cần sửa, bài đã ổn.</span>
                 )}
               </p>
             </section>
@@ -136,11 +161,11 @@ export default function WritingTab({
             <section className="surface">
               <header className="border-b hairline px-4 py-3">
                 <p className="text-sm font-semibold tracking-tight">
-                  Issues ({result.issues.length})
+                  Lỗi tìm thấy ({result.issues.length})
                 </p>
               </header>
               {result.issues.length === 0 ? (
-                <p className="px-4 py-6 text-sm ink-muted">No issues found.</p>
+                <p className="px-4 py-6 text-sm ink-muted">Không có lỗi nào.</p>
               ) : (
                 <ul className="divide-y" style={{ borderColor: "var(--border-soft)" }}>
                   {result.issues.map((i, idx) => (
@@ -153,7 +178,7 @@ export default function WritingTab({
                             color: ISSUE_TONE[i.type],
                           }}
                         >
-                          {i.type}
+                          {ISSUE_LABEL[i.type]}
                         </span>
                         <span
                           className="text-sm line-through"
@@ -162,9 +187,7 @@ export default function WritingTab({
                           {i.original}
                         </span>
                         <span className="text-sm">→</span>
-                        <span className="text-sm font-medium">
-                          {i.suggestion}
-                        </span>
+                        <span className="text-sm font-medium">{i.suggestion}</span>
                       </div>
                       {i.explanation ? (
                         <p className="mt-1 text-xs ink-muted">{i.explanation}</p>
@@ -178,15 +201,15 @@ export default function WritingTab({
             <section className="surface">
               <header className="border-b hairline px-4 py-3">
                 <p className="text-sm font-semibold tracking-tight">
-                  Vocabulary upgrades ({result.upgrades.length})
+                  Gợi ý từ vựng nâng cao ({result.upgrades.length})
                 </p>
                 <p className="mt-0.5 text-xs ink-muted">
-                  Stronger word choices that still sound natural.
+                  Từ mạnh hơn nhưng vẫn tự nhiên.
                 </p>
               </header>
               {result.upgrades.length === 0 ? (
                 <p className="px-4 py-6 text-sm ink-muted">
-                  No upgrades — your word choice is solid.
+                  Không có gợi ý nâng cao — từ bạn dùng đã ổn.
                 </p>
               ) : (
                 <ul className="divide-y" style={{ borderColor: "var(--border-soft)" }}>
@@ -209,15 +232,14 @@ export default function WritingTab({
         ) : null}
       </div>
 
-      {/* History */}
       <aside className="surface flex h-fit flex-col">
         <header className="border-b hairline px-4 py-3">
-          <p className="text-sm font-semibold tracking-tight">Recent</p>
-          <p className="mt-0.5 text-xs ink-muted">Last 50 entries</p>
+          <p className="text-sm font-semibold tracking-tight">Gần đây</p>
+          <p className="mt-0.5 text-xs ink-muted">50 bài gần nhất</p>
         </header>
         {history.length === 0 ? (
           <p className="px-4 py-6 text-sm ink-muted">
-            Your writing history will appear here.
+            Bài viết đã chấm sẽ hiện ở đây.
           </p>
         ) : (
           <ul className="max-h-[60vh] divide-y overflow-y-auto" style={{ borderColor: "var(--border-soft)" }}>
@@ -229,14 +251,12 @@ export default function WritingTab({
                   className="min-w-0 flex-1 text-left"
                 >
                   <p className="truncate text-sm">{e.original}</p>
-                  <p className="mt-0.5 text-xs ink-muted">
-                    {formatDate(e.created_at)}
-                  </p>
+                  <p className="mt-0.5 text-xs ink-muted">{formatDate(e.created_at)}</p>
                 </button>
                 <button
                   type="button"
                   onClick={() => deleteEntry(e.id)}
-                  aria-label="Delete entry"
+                  aria-label="Xoá bài"
                   className="ink-muted hover:text-[var(--ink)]"
                 >
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
@@ -263,8 +283,10 @@ function parseJsonArray<T>(s: string | null): T[] {
 }
 
 /**
- * AI Engine: nhập một từ → sinh các biến thể theo từ loại (danh từ số nhiều,
- * động từ V2/V3, tính từ so sánh hơn/nhất). Hiện tất cả từ loại mà từ đó có.
+ * Word Forms cho tiếng Đức: nhập một từ → sinh biến thể đầy đủ.
+ * - Substantiv: der/die/das, Plural, Genitiv Singular
+ * - Verb: chia 3 ngôi Präsens, Präteritum, Partizip II, haben/sein
+ * - Adjektiv: Komparativ, Superlativ
  */
 function WordFormsEngine({
   model,
@@ -298,9 +320,6 @@ function WordFormsEngine({
     }
   }
 
-  const TYPE_LABEL = { regular: "thường", irregular: "bất quy tắc" } as const;
-  const TYPE_COLOR = { regular: "#16a34a", irregular: "#f59e0b" } as const;
-
   const hasAny = data && (data.noun || data.verb || data.adjective);
 
   return (
@@ -310,10 +329,13 @@ function WordFormsEngine({
           <path d="M5 3v4M3 5h4M6 17v4M4 19h4" />
           <path d="M13 3l3.5 8L21 12l-4.5 1L13 21l-3.5-8L5 12l4.5-1z" />
         </svg>
-        <p className="text-sm font-semibold tracking-tight">Word Forms · Biến thể từ</p>
+        <p className="text-sm font-semibold tracking-tight">
+          Word Forms · Biến thể từ tiếng Đức
+        </p>
       </div>
       <p className="mt-0.5 text-xs ink-muted">
-        Nhập một từ tiếng Anh để xem biến thể danh từ / động từ / tính từ.
+        Nhập một từ để xem mạo từ, số nhiều, chia động từ (Präsens / Präteritum /
+        Partizip II), so sánh tính từ.
       </p>
 
       <div className="mt-3 flex gap-2">
@@ -329,7 +351,7 @@ function WordFormsEngine({
           maxLength={40}
           autoComplete="off"
           spellCheck={false}
-          placeholder="vd: child, go, happy, run…"
+          placeholder="vd. Hund, gehen, schnell…"
           className="input"
         />
         <button
@@ -351,36 +373,53 @@ function WordFormsEngine({
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {data.noun ? (
                 <FormCard
-                  label="Danh từ · Noun"
+                  label="Substantiv · Danh từ"
                   color="#0ea5e9"
-                  badge={`Danh từ ${TYPE_LABEL[data.noun.type]}`}
-                  badgeColor={TYPE_COLOR[data.noun.type]}
-                  rows={[{ k: "Số nhiều", v: data.noun.plural }]}
+                  badge={data.noun.article}
+                  badgeColor={
+                    data.noun.article === "der"
+                      ? "#0ea5e9"
+                      : data.noun.article === "die"
+                        ? "#ec4899"
+                        : "#16a34a"
+                  }
+                  rows={[
+                    { k: "Nominativ Sg.", v: `${data.noun.article} ${data.word}` },
+                    { k: "Plural (die)", v: data.noun.plural || "—" },
+                    { k: "Genitiv Sg.", v: data.noun.genitive_singular || "—" },
+                  ]}
                   note={data.noun.note}
                 />
               ) : null}
               {data.verb ? (
                 <FormCard
-                  label="Động từ · Verb"
+                  label="Verb · Động từ"
                   color="#ec4899"
-                  badge={`Động từ ${TYPE_LABEL[data.verb.type]}`}
-                  badgeColor={TYPE_COLOR[data.verb.type]}
+                  badge={data.verb.type === "irregular" ? "bất quy tắc" : "thường"}
+                  badgeColor={data.verb.type === "irregular" ? "#f59e0b" : "#16a34a"}
                   rows={[
-                    { k: "Cột 2 (V2)", v: data.verb.v2 },
-                    { k: "Cột 3 (V3)", v: data.verb.v3 },
+                    { k: "ich", v: data.verb.ich },
+                    { k: "du", v: data.verb.du },
+                    { k: "er / sie / es", v: data.verb.er },
+                    { k: "Präteritum (er)", v: data.verb.praeteritum },
+                    { k: "Partizip II", v: data.verb.partizip2 },
+                    {
+                      k: "Perfekt mit",
+                      v: data.verb.perfekt_aux === "sein" ? "sein" : "haben",
+                    },
                   ]}
                   note={data.verb.note}
                 />
               ) : null}
               {data.adjective ? (
                 <FormCard
-                  label="Tính từ · Adjective"
+                  label="Adjektiv · Tính từ"
                   color="#f59e0b"
                   badge="So sánh"
                   badgeColor="#a855f7"
                   rows={[
-                    { k: "So sánh hơn", v: data.adjective.comparative },
-                    { k: "So sánh nhất", v: data.adjective.superlative },
+                    { k: "Komparativ", v: data.adjective.comparative },
+                    { k: "Superlativ", v: data.adjective.superlative },
                   ]}
                   note={data.adjective.note}
                 />
@@ -413,7 +452,10 @@ function FormCard({
   note: string;
 }) {
   return (
-    <div className="rounded-md border-l-4 p-3" style={{ borderColor: color, background: "var(--canvas-soft)" }}>
+    <div
+      className="rounded-md border-l-4 p-3"
+      style={{ borderColor: color, background: "var(--canvas-soft)" }}
+    >
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm font-semibold tracking-tight" style={{ color }}>
           {label}
