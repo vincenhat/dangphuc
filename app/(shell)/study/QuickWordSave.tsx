@@ -40,6 +40,7 @@ export default function QuickWordSave({
   const [tags, setTags] = useState(initialTags);
   const [saving, setSaving] = useState(false);
   const [generating, setGenerating] = useState(false);
+  const [status, setStatus] = useState<{ kind: "ok" | "err"; text: string } | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -47,11 +48,19 @@ export default function QuickWordSave({
     inputRef.current?.select();
   }, []);
 
+  // Auto-dismiss the inline status banner after a few seconds.
+  useEffect(() => {
+    if (!status) return;
+    const t = window.setTimeout(() => setStatus(null), 3200);
+    return () => window.clearTimeout(t);
+  }, [status]);
+
   // Ask Gemini to fill in definition, example, Vietnamese translation, IPA,
   // and CEFR for the current word — same endpoint the Decks tab uses.
   async function aiFill() {
     const w = word.trim();
     if (!w || generating) return;
+    setStatus(null);
     setGenerating(true);
     try {
       const res = await fetch("/api/study/generate", {
@@ -68,15 +77,34 @@ export default function QuickWordSave({
         error?: string;
       };
       if (!res.ok) throw new Error(data.error || "AI failed");
-      if (data.definition) setDefinition(data.definition);
+      const filled: string[] = [];
+      if (data.definition) {
+        setDefinition(data.definition);
+        filled.push("definition");
+      }
       // Keep the lesson sentence as the example if AI didn't return one.
-      if (data.example && !example.trim()) setExample(data.example);
-      if (data.translation) setTranslation(data.translation);
+      if (data.example && !example.trim()) {
+        setExample(data.example);
+        filled.push("example");
+      }
+      if (data.translation) {
+        setTranslation(data.translation);
+        filled.push("VN");
+      }
       if (data.cefr && CEFR_LEVELS.includes(data.cefr as CefrLevel)) {
         setCefr(data.cefr as CefrLevel);
+        filled.push("CEFR");
       }
+      setStatus({
+        kind: "ok",
+        text: filled.length > 0
+          ? `AI filled: ${filled.join(", ")}`
+          : "AI returned no new data",
+      });
     } catch (err) {
-      onError(err instanceof Error ? err.message : "AI failed");
+      const msg = err instanceof Error ? err.message : "AI failed";
+      setStatus({ kind: "err", text: msg });
+      onError(msg);
     } finally {
       setGenerating(false);
     }
@@ -151,6 +179,24 @@ export default function QuickWordSave({
             ✕
           </button>
         </div>
+
+        {status ? (
+          <div
+            role="status"
+            className="mb-3 rounded-md border-l-4 px-3 py-2 text-xs"
+            style={{
+              borderColor: status.kind === "ok" ? "#16a34a" : "var(--accent)",
+              background:
+                status.kind === "ok"
+                  ? "rgba(22,163,74,0.08)"
+                  : "rgba(236,72,153,0.08)",
+              color: status.kind === "ok" ? "#16a34a" : "var(--accent)",
+            }}
+          >
+            {status.kind === "ok" ? "✓ " : "✗ "}
+            {status.text}
+          </div>
+        ) : null}
 
         <form
           onSubmit={(e) => {

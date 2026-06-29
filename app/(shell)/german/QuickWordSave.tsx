@@ -11,6 +11,12 @@
 
 import { useEffect, useRef, useState } from "react";
 import { CEFR_LEVELS, type CefrLevel } from "@/lib/study";
+import {
+  type GermanArticle,
+  type GermanPos,
+  isValidArticle,
+  isValidPos,
+} from "@/lib/german";
 import { getStoredModel } from "@/components/ModelPicker";
 
 interface Props {
@@ -40,6 +46,13 @@ export default function QuickWordSave({
   const [tags, setTags] = useState(initialTags);
   const [saving, setSaving] = useState(false);
   const [generating, setGenerating] = useState(false);
+  // German-specific extras populated by AI fill. We don't expose them as form
+  // fields here (the user can edit later from Decks if needed) but we DO send
+  // them along when saving so the deck card lands with article + plural.
+  const [pos, setPos] = useState<GermanPos | "">("");
+  const [article, setArticle] = useState<GermanArticle | "">("");
+  const [plural, setPlural] = useState("");
+  const [status, setStatus] = useState<{ kind: "ok" | "err"; text: string } | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -47,17 +60,25 @@ export default function QuickWordSave({
     inputRef.current?.select();
   }, []);
 
+  // Auto-dismiss the inline status after a short delay so it doesn't linger.
+  useEffect(() => {
+    if (!status) return;
+    const t = window.setTimeout(() => setStatus(null), 3200);
+    return () => window.clearTimeout(t);
+  }, [status]);
+
   // Ask Gemini to fill in definition, example, Vietnamese translation, IPA,
   // and CEFR for the current word — same endpoint the Decks tab uses.
   async function aiFill() {
     const w = word.trim();
     if (!w || generating) return;
+    setStatus(null);
     setGenerating(true);
     try {
       const res = await fetch("/api/german/generate", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ từ: w, model: getStoredModel() ?? undefined }),
+        body: JSON.stringify({ word: w, model: getStoredModel() ?? undefined }),
       });
       const data = (await res.json()) as {
         definition?: string;
@@ -65,18 +86,53 @@ export default function QuickWordSave({
         translation?: string;
         ipa?: string;
         cefr?: string | null;
+        pos?: string | null;
+        article?: string | null;
+        plural?: string | null;
         error?: string;
       };
       if (!res.ok) throw new Error(data.error || "AI thất bại");
-      if (data.definition) setDefinition(data.definition);
+      const filled: string[] = [];
+      if (data.definition) {
+        setDefinition(data.definition);
+        filled.push("Definition");
+      }
       // Keep the lesson sentence as the example if AI didn't return one.
-      if (data.example && !example.trim()) setExample(data.example);
-      if (data.translation) setTranslation(data.translation);
+      if (data.example && !example.trim()) {
+        setExample(data.example);
+        filled.push("Beispiel");
+      }
+      if (data.translation) {
+        setTranslation(data.translation);
+        filled.push("VN");
+      }
       if (data.cefr && CEFR_LEVELS.includes(data.cefr as CefrLevel)) {
         setCefr(data.cefr as CefrLevel);
+        filled.push("CEFR");
       }
+      if (isValidPos(data.pos)) {
+        setPos(data.pos);
+        filled.push("Wortart");
+      }
+      if (isValidArticle(data.article)) {
+        setArticle(data.article);
+        filled.push("Artikel");
+      }
+      if (typeof data.plural === "string" && data.plural.trim()) {
+        setPlural(data.plural);
+        filled.push("Plural");
+      }
+      setStatus({
+        kind: "ok",
+        text: filled.length > 0
+          ? `AI đã điền: ${filled.join(", ")}`
+          : "AI không trả về dữ liệu mới",
+      });
     } catch (err) {
-      onError(err instanceof Error ? err.message : "AI thất bại");
+      const msg = err instanceof Error ? err.message : "AI thất bại";
+      setStatus({ kind: "err", text: msg });
+      // Also notify the parent so they can log it if they want.
+      onError(msg);
     } finally {
       setGenerating(false);
     }
@@ -105,11 +161,14 @@ export default function QuickWordSave({
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
-          từ: w,
+          word: w,
           definition: definition.trim(),
           example: example.trim(),
           translation: translation.trim(),
           cefr,
+          pos: pos || null,
+          article: pos === "noun" ? article || null : null,
+          plural: pos === "noun" ? plural || null : null,
           tags: tags.trim(),
         }),
       });
@@ -141,7 +200,7 @@ export default function QuickWordSave({
         style={{ background: "var(--canvas)" }}
       >
         <div className="mb-3 flex items-baseline justify-between">
-          <h3 className="text-base font-semibold tracking-tight">Save to deck</h3>
+          <h3 className="text-base font-semibold tracking-tight">Lưu vào bộ thẻ</h3>
           <button
             type="button"
             onClick={onClose}
@@ -151,6 +210,24 @@ export default function QuickWordSave({
             ✕
           </button>
         </div>
+
+        {status ? (
+          <div
+            role="status"
+            className="mb-3 rounded-md border-l-4 px-3 py-2 text-xs"
+            style={{
+              borderColor: status.kind === "ok" ? "#16a34a" : "var(--accent)",
+              background:
+                status.kind === "ok"
+                  ? "rgba(22,163,74,0.08)"
+                  : "rgba(236,72,153,0.08)",
+              color: status.kind === "ok" ? "#16a34a" : "var(--accent)",
+            }}
+          >
+            {status.kind === "ok" ? "✓ " : "✗ "}
+            {status.text}
+          </div>
+        ) : null}
 
         <form
           onSubmit={(e) => {
@@ -180,6 +257,47 @@ export default function QuickWordSave({
                 {generating ? "…" : "AI ↗"}
               </button>
             </div>
+            {pos || article || plural ? (
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {pos ? (
+                  <span
+                    className="rounded-capsule px-2 py-0.5 text-[10px] uppercase tracking-wider"
+                    style={{ background: "var(--canvas-soft)", color: "var(--ink-muted)" }}
+                  >
+                    {pos}
+                  </span>
+                ) : null}
+                {article ? (
+                  <span
+                    className="rounded-capsule px-2 py-0.5 text-[10px] font-medium"
+                    style={{
+                      background:
+                        article === "der"
+                          ? "rgba(14,165,233,0.12)"
+                          : article === "die"
+                            ? "rgba(236,72,153,0.12)"
+                            : "rgba(22,163,74,0.12)",
+                      color:
+                        article === "der"
+                          ? "#0ea5e9"
+                          : article === "die"
+                            ? "#ec4899"
+                            : "#16a34a",
+                    }}
+                  >
+                    {article} {word}
+                  </span>
+                ) : null}
+                {plural && pos === "noun" ? (
+                  <span
+                    className="rounded-capsule px-2 py-0.5 text-[10px]"
+                    style={{ background: "rgba(99,102,241,0.12)", color: "#6366f1" }}
+                  >
+                    Plural: die {plural}
+                  </span>
+                ) : null}
+              </div>
+            ) : null}
           </label>
 
           <div className="grid grid-cols-2 gap-3">
@@ -255,7 +373,7 @@ export default function QuickWordSave({
           </div>
 
           <p className="text-[11px] ink-muted">
-            ⌘ / Ctrl + Enter to save · Esc to close
+            ⌘ / Ctrl + Enter để lưu · Esc để đóng
           </p>
         </form>
       </div>
