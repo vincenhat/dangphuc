@@ -1,21 +1,68 @@
 import PageHeader from "@/components/PageHeader";
-import { db } from "@/lib/firestore";
-import { todayIso } from "@/lib/format";
+import { db, newId } from "@/lib/firestore";
+import { nowIso, todayIso } from "@/lib/format";
 import { pickDailyReview } from "@/lib/study";
 import type { WritingEntry } from "@/lib/study";
 import type { GermanCard } from "@/lib/german";
+import { GERMAN_SEED_CARDS, type GermanSeedCard } from "@/lib/german-seed";
 import GermanClient from "./GermanClient";
 
 export const dynamic = "force-dynamic";
 
 /**
- * German learning page — parallel structure to /study but backed by separate
- * Firestore collections (`german_cards`, `german_writing_entries`,
- * `german_tests`, `german_readings`).
+ * Seed any missing starter words into Firestore.
  *
- * No automatic seed: the German deck starts empty so the user adds words at
- * the pace they're learning. The AI fill in the Decks tab makes that fast.
+ * Strategy: fetch every existing card's `word`, diff against the seed list,
+ * then write the missing ones in batches of 400 (Firestore's hard batch limit
+ * is 500 ops). The seed list has 500+ items, so the very first visit splits
+ * across two batches; subsequent visits do a single read with zero writes.
  */
+async function backfillSeed(): Promise<void> {
+  const existingSnap = await db().collection("german_cards").select("word").get();
+  const have = new Set<string>();
+  existingSnap.forEach((doc) => {
+    const data = doc.data() as { word?: string };
+    if (typeof data.word === "string") have.add(data.word.toLowerCase());
+  });
+
+  const missing: GermanSeedCard[] = GERMAN_SEED_CARDS.filter(
+    (c) => !have.has(c.word.toLowerCase()),
+  );
+  if (missing.length === 0) return;
+
+  const today = todayIso();
+  const now = nowIso();
+  const BATCH = 400;
+  for (let i = 0; i < missing.length; i += BATCH) {
+    const batch = db().batch();
+    for (const c of missing.slice(i, i + BATCH)) {
+      const id = newId();
+      const ref = db().collection("german_cards").doc(id);
+      batch.set(ref, {
+        id,
+        word: c.word,
+        definition: c.definition,
+        example: c.example,
+        translation: c.translation,
+        ipa: c.ipa,
+        cefr: c.cefr,
+        pos: c.pos,
+        article: c.article,
+        plural: c.plural,
+        tags: c.tags,
+        ease_factor: 2.5,
+        repetitions: 0,
+        interval_days: 0,
+        due_date: today,
+        last_reviewed: null,
+        created_at: now,
+        updated_at: now,
+      });
+    }
+    await batch.commit();
+  }
+}
+
 export default async function GermanPage() {
   const today = todayIso();
 
@@ -25,6 +72,8 @@ export default async function GermanPage() {
   let error: string | null = null;
 
   try {
+    await backfillSeed();
+
     const [allSnap, dueSnap, writingSnap] = await Promise.all([
       db()
         .collection("german_cards")
